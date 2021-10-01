@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 DATE_FORMAT = "%Y-%m-%d"
 
-Pattern = re._pattern_type
+Pattern = type(re.compile('', 0))
 
 REPLACEMENTS = {
     "ä": "ae",
