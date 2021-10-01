@@ -95,16 +95,44 @@ class Record(object):
         return to(str, getattr(self, name), default="")
 
     @classmethod
-    def attributes(cls):
-        """Get attributes of this class
+    def fields(cls):
+        """Get all attributes/fields of this record type
 
         Returns:
-            set: Attributes accepted by this record
+            set: Names of all fields in this record
         """
         return set(vars(cls()).keys())
 
     @classmethod
-    def from_dict(cls, d, attrs=None):
+    def nested_records(cls):
+        """Get all attributes/fields of this record, which are also records
+
+        Returns:
+            set: Names of all fields in this record, which are also records
+        """
+        return {k for k, v in vars(cls()).items() if isinstance(v, Record)}
+
+    @classmethod
+    def fields_in(cls, names, index_only=False):
+        """Get names of fields matching this record
+
+        The output of this method can be used as input to :meth:`from_dict` and
+        :meth:`from_obj`.
+
+        Arguments:
+            names (iterable): List of field names
+            index_only (bool): If True, only matching fields from the index
+               are returned
+
+        Return:
+            set: List of recognised fields in names
+        """
+        if index_only:
+            return (set(cls.index) - cls.nested_records()) & set(names)
+        return (cls.fields() - cls.nested_records()) & set(names)
+
+    @classmethod
+    def from_dict(cls, d, attrs=None, prefix=""):
         """Create record from dictionary
 
         Arguments:
@@ -112,25 +140,30 @@ class Record(object):
                 name of arguments passed to constructor
             attrs (iterable or None): Attributes to select from d. If ``None``,
                  cls.index is used.
+            prefix (str): Prefix appended to each attribute. Defaults to ``""``.
 
         Returns:
             Record: Record instance
+
+        Raises:
+            KeyError: If one of the attributes in attrs is not found in d
         """
-        _attrs = set(cls.index) if attrs is None else attrs
-        return cls(**{k: v for k, v in d.items() if k in _attrs})
+        _attrs = set(cls.index) if attrs is None else set(attrs)
+        return cls(**{key: d[f"{prefix}{key}"] for key in _attrs})
 
     @classmethod
-    def from_namedtuple(cls, t, attrs=None):
+    def from_obj(cls, obj, attrs=None, prefix=""):
         """Create record from named tuple
 
         Arguments:
-            t (namedtuple): Tuple containing attributes. Attribute names must
-                match name of arguments passed to constructor
+            obj (object): Object instance. Attributes must be identical to
+                the attributes passed in attrs.
             attrs (iterable or None): Attributes to select from t. If ``None``,
                  cls.index is used.
+            prefix (str): Prefix appended to each attribute. Defaults to ``""``.
 
         Returns:
             Record: Record instance
         """
-        _attrs = set(cls.index) if attrs is None else attrs
-        return cls(**{k: getattr(t, k) for k in t._fields if k in _attrs})
+        _attrs = set(cls.index) if attrs is None else set(attrs)
+        return cls(**{key: getattr(obj, f"{prefix}{key}") for key in _attrs})

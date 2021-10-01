@@ -66,10 +66,25 @@ class PersonTestCase(unittest.TestCase):
         self.assertEqual("Lilienthal", p.last_name)
         self.assertEqual(3, p.count)
 
+    def test_fields(self):
+        self.assertSetEqual({"first_name",
+                             "last_name",
+                             "title",
+                             "comments",
+                             "birthday",
+                             "birthplace",
+                             "gender",
+                             "count",
+                             "uid",
+                             "kind"}, Person.fields())
+
+        self.assertSetEqual(set(), Person.nested_records())
+
     def test_from_dict(self):
         d = {"first_name": "Otto",
              "last_name": "Lilienthal",
              "gender": "male",
+             "count": None,
              "age": "180"}
         p = Person.from_dict(d)
         self.assertIsInstance(p, Person)
@@ -77,7 +92,8 @@ class PersonTestCase(unittest.TestCase):
         self.assertEqual("Lilienthal", p.last_name)
         self.assertIsNone(p.gender)
 
-        p = Person.from_dict(d, Person.attributes())
+        common_fields = Person.fields_in(d.keys())
+        p = Person.from_dict(d, common_fields)
         self.assertIsInstance(p, Person)
         self.assertEqual("Otto", p.first_name)
         self.assertEqual("Lilienthal", p.last_name)
@@ -88,13 +104,14 @@ class PersonTestCase(unittest.TestCase):
                                ["first_name", "last_name", "age", "gender"])
         t = TupleType("Otto", "Lilienthal", 45, "male")
 
-        p = Person.from_namedtuple(t)
+        recognised_fields = Person.fields_in(TupleType._fields)
+        p = Person.from_obj(t, ["first_name", "last_name"])
         self.assertIsInstance(p, Person)
         self.assertEqual("Otto", p.first_name)
         self.assertEqual("Lilienthal", p.last_name)
         self.assertIsNone(p.gender)
 
-        p = Person.from_namedtuple(t, Person.attributes())
+        p = Person.from_obj(t, recognised_fields)
         self.assertIsInstance(p, Person)
         self.assertEqual("Otto", p.first_name)
         self.assertEqual("Lilienthal", p.last_name)
