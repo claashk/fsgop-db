@@ -1,3 +1,4 @@
+from collections import namedtuple
 
 
 class ColumnInfo(object):
@@ -11,6 +12,8 @@ class ColumnInfo(object):
            MUL (multiple)
         default_value (str): The default value for the column
         extra (str): Extra information, such as 'auto_increment'
+        references(str): Name of a table, which is used to store information
+            referenced in this column, e.g. "Person.uid"
     """
     def __init__(self,
                  name=None,
@@ -18,13 +21,15 @@ class ColumnInfo(object):
                  allows_null=False,
                  index=None,
                  default_value=None,
-                 extra=""):
+                 extra="",
+                 references=None):
         self.name = name
         self.dtype = dtype
         self.allows_null = allows_null
         self.index = index
         self.default_value = default_value
         self.extra = extra
+        self.references = references
 
     def is_primary_index(self):
         """Check if column is the primary index
@@ -65,11 +70,11 @@ class TableInfo(object):
         """Construct new table    
     
         """    
-        self.columns = []
+        self._cols = []
         
         if columns is not None:
             for col in columns:
-                self.append_column(col)
+                self.add_column(col)
 
     @property
     def ncols(self):
@@ -78,16 +83,24 @@ class TableInfo(object):
         Return:
             int: Number of columns in this table
         """
-        return len(self.columns)
+        return len(self._cols)
 
-    def append_column(self, col):
+    @property
+    def columns(self):
+        """Get names of all columns in this table
+
+        Return:
+            tuple: Name of each column in this table
+        """
+        return tuple(c.name for c in self._cols)
+
+    def add_column(self, col):
         """Insert a column into the table
         
         Arguments:
             col (:class:`fsgop.db.ColumnInfo`): Column to insert
         """
-        self.columns.append(col)
-
+        self._cols.append(col)
 
     def format(self):
         """Returns a tuple to be passed to INSERT INTO VALUES command.
@@ -107,7 +120,7 @@ class TableInfo(object):
             pysk.SqlColumn instance with the given name. Raises a KeyError if no
             such column exists
         """
-        for col in self.columns:
+        for col in self._cols:
             if col.name == name:
                 return col
         raise KeyError(f"No such column: '{name}'")
@@ -125,18 +138,9 @@ class TableInfo(object):
             object: Attributes of ``cls`` corresponding to the columns of this
                 table.
         """
-        for col in self.columns:            
+        for col in self._cols:
             yield getattr(rec, col.name)
 
-    def column_names(self):
-        """Iterate over column names
-        
-        Return:
-            Generator: Generator over column names of this table
-        """
-        for col in self.columns:
-            yield col.name
-        
     def get_record(self, rec):
         """Convert class into tuple based on attributes.
         
@@ -150,3 +154,17 @@ class TableInfo(object):
             tuple: Tuple intended for insertion into table
         """
         return tuple(self.iter_record(rec))
+
+    def record_type(self, name):
+        return namedtuple(name, self.columns)
+
+    def export(self):
+        return [{k: to(str, v) for k, v in vars(col).items()}
+                for col in self._cols]
+
+    @classmethod
+    def from_list(cls, lst):
+        table = cls()
+        for col in lst:
+            table.add_column(ColumnInfo(**col))
+
