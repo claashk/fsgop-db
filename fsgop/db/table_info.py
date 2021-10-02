@@ -66,10 +66,11 @@ class TableInfo(object):
         columns (iterable): Iterable containing one :class:`fsgop.db.ColumnInfo`
             object per column in this table.
     """
-    def __init__(self, columns=None):
+    def __init__(self, name=None, columns=None):
         """Construct new table    
     
-        """    
+        """
+        self.name = name
         self._cols = []
         
         if columns is not None:
@@ -159,8 +160,7 @@ class TableInfo(object):
         return namedtuple(name, self.columns)
 
     def export(self):
-        return [{k: to(str, v) for k, v in vars(col).items()}
-                for col in self._cols]
+        return [dict(vars(col).items()) for col in self._cols]
 
     @classmethod
     def from_list(cls, lst):
