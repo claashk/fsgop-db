@@ -47,8 +47,33 @@ class Database(object):
         """
         raise NotImplementedError()
 
-    def get_schema(self):
+    def get_table_info(self, table):
+        """Get information about a table
+
+        Arguments:
+            table (str): Name of the table
+
+        Return:
+            TableInfo: Information about the table
+        """
         raise NotImplementedError()
+
+    def get_schema(self):
+        tables = self.list_tables()
+        schema = dict()
+
+        for name in tables:
+            schema[name] = self.get_table_info(name)
+        return schema
+
+    def create_table(self, table, force=False):
+        _force = "" if force else " IF NOT EXISTS"
+        _cols = ",".join(f"{col.name} {col.dtype}"
+                         f"{'' if col.allows_null else ' NOT NULL'}"
+                         f"{' PRIMARY KEY' if col.is_primary_index() else ''}"
+                         f"DEFAULT {col.default()}"
+                         for col in table)
+        self._cursor.execute(f"CREATE TABLE{_force} {table.name}({_cols})")
 
     def export_schema(self):
         if self.schema is None:

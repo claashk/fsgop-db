@@ -1,6 +1,6 @@
 import MySQLdb as mysql
 from .database import Database
-from .table_info import TableInfo, ColumnInfo
+from .table_info import TableInfo, ColumnInfo, IndexInfo
 
 
 class MysqlDatabase(Database):
@@ -42,19 +42,27 @@ class MysqlDatabase(Database):
         self._cursor.execute("SHOW TABLES")
         return [t[0] for t in self._cursor.fetchall()]
 
-    def get_schema(self):
-        tables = self.list_tables()
-        schema = dict()
+    def get_table_info(self, name):
+        table = TableInfo(name=name, indices=self.get_index_info(name))
+        self._cursor.execute(f"DESCRIBE `{name}`")
+        for rec in self._cursor.fetchall():
+            table.add_column(ColumnInfo(name=rec[0],
+                                        dtype=rec[1],
+                                        allows_null=(rec[2].upper() == "YES"),
+                                        index=rec[3],
+                                        default_value=rec[4],
+                                        extra=rec[5].lower()))
+        return table
 
-        for name in tables:
-            self._cursor.execute(f"DESCRIBE `{name}`")
-            table = schema.setdefault(name, TableInfo(name=name))
-            for rec in self._cursor.fetchall():
-                table.add_column(ColumnInfo(
-                                     name=rec[0],
-                                     dtype=rec[1],
-                                     allows_null=(rec[2].upper() == "YES"),
-                                     index=rec[3],
-                                     default_value=rec[4],
-                                     extra=rec[5].lower()))
-        return schema
+    def get_index_info(self, table):
+        order = {"A": 1, "D": -1, "NULL": 0}
+        indices = dict()
+        self._cursor.execute(f"SHOW INDEX FROM `{table}`")
+        for rec in self._cursor.fetchall():
+            idx = indices.setdefault(
+                rec[2],
+                IndexInfo(name=rec[2],
+                          unique=(int(rec[1] == 0)),
+                          primary=(rec[2].upper()) == "PRIMARY"))
+            idx.add_column(rec[4], rec[3] - 1, order[rec[5]])
+        return indices.values()
