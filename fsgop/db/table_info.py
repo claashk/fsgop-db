@@ -59,6 +59,33 @@ class ColumnInfo(object):
         return f"'{self.default_value}'"
 
 
+class IndexInfo(object):
+    """Store index information"""
+
+    def __init__(self, name, unique=False, primary=False, columns=None):
+        self.name = name
+        self.is_unique = bool(unique)
+        self.is_primary = bool(primary)
+        self.columns = []
+
+        if columns is not None:
+            for col in columns:
+                self.add_column(*col)
+
+    def add_column(self, name, sequence, order):
+        """Add column to this index
+
+        Arguments:
+            name (str): Name of the column
+            sequence (int): Zero based index of the column within the index
+            order (int): Order of the column ("1" ascending, "-1" Descding, 0 unsorted)
+        """
+        i = int(sequence)
+        if i >= len(self.columns):
+            self.columns.extend((len(self.columns) - i + 1) * (None,))
+        self.columns[i] = (str(name), int(order))
+
+
 class TableInfo(object):
     """Stores meta data for a (MySql) table
 
@@ -66,16 +93,24 @@ class TableInfo(object):
         columns (iterable): Iterable containing one :class:`fsgop.db.ColumnInfo`
             object per column in this table.
     """
-    def __init__(self, name=None, columns=None):
+    def __init__(self, name=None, columns=None, indices=None):
         """Construct new table    
     
         """
         self.name = name
         self._cols = []
+        self._indices = dict()
         
         if columns is not None:
             for col in columns:
                 self.add_column(col)
+
+        if indices is not None:
+            for idx in indices:
+                self.add_index(idx)
+
+    def __iter__(self):
+        yield from self._cols
 
     @property
     def ncols(self):
@@ -102,6 +137,14 @@ class TableInfo(object):
             col (:class:`fsgop.db.ColumnInfo`): Column to insert
         """
         self._cols.append(col)
+
+    def add_index(self, idx):
+        """Insert a column into the table
+
+        Arguments:
+            idx (:class:`fsgop.db.IndexInfo`): Index to insert
+        """
+        self._indices[idx.name] = idx
 
     def format(self):
         """Returns a tuple to be passed to INSERT INTO VALUES command.
@@ -160,11 +203,16 @@ class TableInfo(object):
         return namedtuple(name, self.columns)
 
     def export(self):
-        return [dict(vars(col).items()) for col in self._cols]
+        return {"columns": [dict(vars(col).items()) for col in self._cols],
+                "indices": [dict(vars(idx).items())
+                            for idx in self._indices.values()]}
 
     @classmethod
-    def from_list(cls, lst):
+    def from_list(cls, columns, indices=None):
         table = cls()
-        for col in lst:
+        for col in columns:
             table.add_column(ColumnInfo(**col))
 
+        if indices is not None:
+            for idx in indices:
+                table.add_index(IndexInfo(**idx))

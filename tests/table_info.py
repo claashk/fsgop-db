@@ -37,18 +37,18 @@ class TableInfoTestCase(unittest.TestCase):
         t = TableInfo()
         self.assertEqual(0, t.ncols)
 
-        t1 = TableInfo(self.get_columns())
+        t1 = TableInfo(columns=self.get_columns())
         self.assertEqual(3, t1.ncols)
 
     def test_format(self):
         t = TableInfo()
         self.assertEqual("()", t.format())
 
-        t1 = TableInfo(self.get_columns())
+        t1 = TableInfo(columns=self.get_columns())
         self.assertEqual("(%s,%s,%s)", t1.format())
 
     def test_get_column(self):
-        t = TableInfo(self.get_columns())
+        t = TableInfo(columns=self.get_columns())
         c = t.get_column("col1")
         self.assertEqual("col1", c.name)
         self.assertEqual("integer", c.dtype)
@@ -60,7 +60,7 @@ class TableInfoTestCase(unittest.TestCase):
         self.assertRaises(KeyError, t.get_column, "col4")
 
     def test_tuple_conversion(self):
-        t = TableInfo(self.get_columns())
+        t = TableInfo(columns=self.get_columns())
         rec = Empty()
         rec.col1 = 1
         rec.col4 = 42
