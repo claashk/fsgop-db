@@ -62,7 +62,9 @@ class MysqlDatabase(Database):
             idx = indices.setdefault(
                 rec[2],
                 IndexInfo(name=rec[2],
-                          unique=(int(rec[1] == 0)),
-                          primary=(rec[2].upper()) == "PRIMARY"))
-            idx.add_column(rec[4], rec[3] - 1, order[rec[5]])
+                          is_unique=(int(rec[1] == 0)),
+                          is_primary=(rec[2].upper()) == "PRIMARY"))
+            idx.add_column(name=rec[4],
+                           order=order[rec[5]],
+                           sequence=int(rec[3]) - 1)
         return indices.values()
