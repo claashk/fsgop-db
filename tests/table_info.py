@@ -2,7 +2,7 @@
 
 import unittest
 from datetime import datetime
-from fsgop.db import TableInfo, ColumnInfo
+from fsgop.db import TableInfo, ColumnInfo, IndexInfo
 
 
 class Empty(object):
@@ -16,6 +16,15 @@ class TableInfoTestCase(unittest.TestCase):
             ColumnInfo(name="col1", dtype="integer"),
             ColumnInfo(name="col2", dtype="float"),
             ColumnInfo(name="col3", dtype="time")
+        ]
+
+    @staticmethod
+    def get_indices():
+        return [
+            IndexInfo("secondary", False, False, [("col2", 1, 1),
+                                                  ("col1", 0, -1),
+                                                  ("col3", 2, 0)]),
+            IndexInfo("primary", True, True, [("col2", 1, 1), ("col1", 0, -1)])
         ]
 
     def test_column_construction(self):
@@ -39,6 +48,11 @@ class TableInfoTestCase(unittest.TestCase):
 
         t1 = TableInfo(columns=self.get_columns())
         self.assertEqual(3, t1.ncols)
+
+        t2 = TableInfo(columns=self.get_columns(), indices=self.get_indices())
+        self.assertEqual(2, t2.nidx)
+        self.assertSetEqual(set(["primary", "secondary"]), t2.indices)
+
 
     def test_format(self):
         t = TableInfo()
@@ -68,6 +82,10 @@ class TableInfoTestCase(unittest.TestCase):
         rec.col2 = 2.1
         self.assertTupleEqual((1, 2.1, datetime(2012, 1, 23, 14, 15, 16)),
                               t.get_record(rec))
+
+    def test_get_primary_key(self):
+        t = TableInfo(columns=self.get_columns(), indices=self.get_indices())
+        self.assertEqual("PRIMARY KEY (col1 DESC,col2)", t.primary_key())
 
 
 def suite():

@@ -75,7 +75,7 @@ class IndexInfo(object):
         self.name = name
         self.is_unique = bool(unique)
         self.is_primary = bool(primary)
-        self.columns = []
+        self._cols = []
 
         if columns is not None:
             for col in columns:
@@ -91,9 +91,14 @@ class IndexInfo(object):
                descending, or "0" for unsorted)
         """
         i = int(sequence)
-        if i >= len(self.columns):
-            self.columns.extend((len(self.columns) - i + 1) * (None,))
-        self.columns[i] = (str(name), int(order))
+        n_missing = i + 1 - len(self._cols)
+        if n_missing > 0:
+            self._cols.extend(n_missing * [None])
+        self._cols[i] = (str(name), int(order))
+
+    def key_format(self):
+        """Get SQL KEY"""
+        return ",".join(f"{n}{' DESC' if i < 0 else ''}" for n, i in self._cols)
 
 
 class TableInfo(object):
@@ -137,6 +142,10 @@ class TableInfo(object):
         return len(self._cols)
 
     @property
+    def nidx(self):
+        return len(self._indices)
+
+    @property
     def columns(self):
         """Get names of all columns in this table
 
@@ -144,6 +153,10 @@ class TableInfo(object):
             tuple: Name of each column in this table
         """
         return tuple(c.name for c in self._cols)
+
+    @property
+    def indices(self):
+        return set(self._indices.keys())
 
     def add_column(self, col):
         """Insert a column into the table
@@ -168,6 +181,18 @@ class TableInfo(object):
             str: format string
         """
         return f"({','.join(self.ncols * ['%s'])})"
+
+    def primary_key(self):
+        """Get primary key statement
+
+        Return:
+            str: Format string for the first key marked as primary, empty string
+            if no primary key is defined
+        """
+        for name, idx in self._indices.items():
+            if idx.is_primary:
+                return f"PRIMARY KEY ({idx.key_format()})"
+        return ""
 
     def get_column(self, name):
         """Get column with a given name
