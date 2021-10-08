@@ -22,9 +22,9 @@ class TableInfoTestCase(unittest.TestCase):
     def get_indices():
         return [
             IndexInfo("secondary", False, False, [("col2", 1, 1),
-                                                  ("col1", 0, -1),
-                                                  ("col3", 2, 0)]),
-            IndexInfo("primary", True, True, [("col2", 1, 1), ("col1", 0, -1)])
+                                                  ("col1", -1, 0),
+                                                  ("col3", 0, 2)]),
+            IndexInfo("primary", True, True, [("col2", 1, 1), ("col1", -1, 0)])
         ]
 
     def test_column_construction(self):
@@ -52,7 +52,6 @@ class TableInfoTestCase(unittest.TestCase):
         t2 = TableInfo(columns=self.get_columns(), indices=self.get_indices())
         self.assertEqual(2, t2.nidx)
         self.assertSetEqual(set(["primary", "secondary"]), t2.indices)
-
 
     def test_format(self):
         t = TableInfo()

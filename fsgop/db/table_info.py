@@ -71,17 +71,21 @@ class IndexInfo(object):
            arguments to :meth:`IndexInfo.add_column` for the column to add to
            this index.
     """
-    def __init__(self, name, unique=False, primary=False, columns=None):
+    def __init__(self, name, is_unique=False, is_primary=False, columns=None):
         self.name = name
-        self.is_unique = bool(unique)
-        self.is_primary = bool(primary)
+        self.is_unique = bool(is_unique)
+        self.is_primary = bool(is_primary)
         self._cols = []
 
         if columns is not None:
             for col in columns:
                 self.add_column(*col)
+            if None in self._cols:
+                raise ValueError(f"Index '{self.name}' incomplete: Missing "
+                                 f"information about {self._cols.count(None)} / "
+                                 f"{len(self._cols)} indexed columns")
 
-    def add_column(self, name, sequence, order):
+    def add_column(self, name, order=1, sequence=None):
         """Add column to this index
 
         Arguments:
@@ -90,7 +94,7 @@ class IndexInfo(object):
             order (int): Order of the column ("1" for ascending, "-1" for
                descending, or "0" for unsorted)
         """
-        i = int(sequence)
+        i = int(sequence) if sequence is not None else len(self._cols)
         n_missing = i + 1 - len(self._cols)
         if n_missing > 0:
             self._cols.extend(n_missing * [None])
@@ -99,6 +103,14 @@ class IndexInfo(object):
     def key_format(self):
         """Get SQL KEY"""
         return ",".join(f"{n}{' DESC' if i < 0 else ''}" for n, i in self._cols)
+
+    def as_dict(self):
+        return {
+            "name": self.name,
+            "is_unique": self.is_unique,
+            "is_primary": self.is_primary,
+            "columns": [(name, o) for name, o in enumerate(self._cols)]
+        }
 
 
 class TableInfo(object):
@@ -253,11 +265,10 @@ class TableInfo(object):
             The output can be imported using ``TableInfo.from_list(**output)``
         """
         return {"columns": [dict(vars(col).items()) for col in self._cols],
-                "indices": [dict(vars(idx).items())
-                            for idx in self._indices.values()]}
+                "indices": [idx.as_dict() for idx in self._indices.values()]}
 
     @classmethod
-    def from_list(cls, columns, indices=None):
+    def from_list(cls, name, columns, indices=None):
         """Create a new TableInfo instance from a list of columns and indices
 
         Arguments:
@@ -271,10 +282,11 @@ class TableInfo(object):
         Return:
             TableInfo: Table information
         """
-        table = cls()
+        table = cls(name=name)
         for col in columns:
             table.add_column(ColumnInfo(**col))
 
         if indices is not None:
             for idx in indices:
                 table.add_index(IndexInfo(**idx))
+        return table
