@@ -109,7 +109,7 @@ class IndexInfo(object):
             "name": self.name,
             "is_unique": self.is_unique,
             "is_primary": self.is_primary,
-            "columns": [(name, o) for name, o in enumerate(self._cols)]
+            "columns": [(name, o) for name, o in self._cols]
         }
 
 
