@@ -77,12 +77,13 @@ class Database(object):
                warning. 
         """
         _force = "" if force else " IF NOT EXISTS"
+        _name = table_info.name
         _cols = ",".join(f"{col.name} {col.dtype}"
-                         f"{'' if col.allows_null else ' NOT NULL'}"
-                         f"{' PRIMARY KEY' if col.is_primary_index() else ''}"
+                         f"{'' if col.allows_null else ' NOT NULL'} "
                          f"DEFAULT {col.default()}"
                          for col in table_info)
-        self._cursor.execute(f"CREATE TABLE{_force} {table_info.name}({_cols})")
+        _key = table_info.primary_key()
+        self._cursor.execute(f"CREATE TABLE{_force} {_name}({_cols}, {_key})")
 
     def export_schema(self):
         """Export current schema
@@ -92,7 +93,7 @@ class Database(object):
         """
         if self.schema is None:
             return None
-        return {k: v.export() for k, v in self.schema.items()}
+        return {k: v.as_dict() for k, v in self.schema.items()}
 
     def select(self, name, where=None, order=None):
         """Iterate over the rows of a given table                
@@ -133,7 +134,6 @@ class Database(object):
         fmt = f"({','.join(table.ncols * ['{}'])})"
         command = str(f"{'REPLACE' if force else 'INSERT IGNORE'} "
                       f"INTO {table.name} VALUES {fmt}")
-        
         for row in rows:
             self._cursor.execute(command.format(*row))
 
@@ -159,7 +159,7 @@ class Database(object):
             ids (iterable): ids to be deleted. Each element should be
                convertible to an integer.
         """
-        id_col = self.schema[name].columns[0]
+        id_col = self.schema[name]._cols[0]
         if ids:
             self.delete(name, where=f"{id_col} IN ({','.join(map(str, ids))}")
 
@@ -223,7 +223,7 @@ class Database(object):
             Instance of *cls* matching query, if and only if the query returns
             exactly one result. Otherwise a :class:`KeyError` is raised.
         """
-        id_col = self.schema[name].columns[0]
+        id_col = self.schema[name]._cols[0]
         if id:
             return self.unique(name, where=f"{id_col}={uid}")
         return None
