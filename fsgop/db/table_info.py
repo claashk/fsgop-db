@@ -60,8 +60,17 @@ class ColumnInfo(object):
 
 
 class IndexInfo(object):
-    """Store index information"""
+    """Stores information about an index for a given table
 
+    Arguments:
+        name (str): Name of the index
+        unique (bool): ``True`` if and only if the index is unique
+        primary (bool): ``True`` if and only if this is the primary index for
+           the table.
+        columns (iterable): List of tuples, where each tuple contains the
+           arguments to :meth:`IndexInfo.add_column` for the column to add to
+           this index.
+    """
     def __init__(self, name, unique=False, primary=False, columns=None):
         self.name = name
         self.is_unique = bool(unique)
@@ -78,7 +87,8 @@ class IndexInfo(object):
         Arguments:
             name (str): Name of the column
             sequence (int): Zero based index of the column within the index
-            order (int): Order of the column ("1" ascending, "-1" Descding, 0 unsorted)
+            order (int): Order of the column ("1" for ascending, "-1" for
+               descending, or "0" for unsorted)
         """
         i = int(sequence)
         if i >= len(self.columns):
@@ -90,13 +100,13 @@ class TableInfo(object):
     """Stores meta data for a (MySql) table
 
     Arguments:
+        name (str): Name of this table
         columns (iterable): Iterable containing one :class:`fsgop.db.ColumnInfo`
             object per column in this table.
+        indices (iterable): Iterable containing one :class:`IndexInfo` object
+           per index for this table.
     """
     def __init__(self, name=None, columns=None, indices=None):
-        """Construct new table    
-    
-        """
         self.name = name
         self._cols = []
         self._indices = dict()
@@ -110,6 +120,11 @@ class TableInfo(object):
                 self.add_index(idx)
 
     def __iter__(self):
+        """Iterate over the columns of this table
+
+        Yields:
+            :class:`ColumnInfo`: column information
+        """
         yield from self._cols
 
     @property
@@ -139,7 +154,7 @@ class TableInfo(object):
         self._cols.append(col)
 
     def add_index(self, idx):
-        """Insert a column into the table
+        """Add an index for this table
 
         Arguments:
             idx (:class:`fsgop.db.IndexInfo`): Index to insert
@@ -163,6 +178,9 @@ class TableInfo(object):
         Return:
             pysk.SqlColumn instance with the given name. Raises a KeyError if no
             such column exists
+
+        Raise:
+            KeyError: If no column with the given `name` exists.
         """
         for col in self._cols:
             if col.name == name:
@@ -202,13 +220,32 @@ class TableInfo(object):
     def record_type(self, name):
         return namedtuple(name, self.columns)
 
-    def export(self):
+    def as_dict(self):
+        """Convert table information into a dictionary
+
+        Returns:
+            dict: Dictionary containing columns and indices of this table.
+            The output can be imported using ``TableInfo.from_list(**output)``
+        """
         return {"columns": [dict(vars(col).items()) for col in self._cols],
                 "indices": [dict(vars(idx).items())
                             for idx in self._indices.values()]}
 
     @classmethod
     def from_list(cls, columns, indices=None):
+        """Create a new TableInfo instance from a list of columns and indices
+
+        Arguments:
+            columns (list): Iterable of dictionaries, where each dictionary
+               can be forwarded as keyword arguments to the ColumInfo
+               constructor.
+            indices (iterable): Iterable of dictionaries, where each dictionary
+               can be forwarded as keyword arguments to the IndexInfo
+               constructor.
+
+        Return:
+            TableInfo: Table information
+        """
         table = cls()
         for col in columns:
             table.add_column(ColumnInfo(**col))

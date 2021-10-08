@@ -1,16 +1,14 @@
 
 
 class Database(object):
-    """Generic database implementation
+    """Base class implementing a generic database interface
 
-    If *password* is not ``None``, a new connection to the database will be
-    attempted.        
-        
     Arguments:
-        host (str): Hostname. Defaults to '*localhost*'
-        user (str): MySQL username. Defaults to '*startkladde*'.
-        password (str): Password for user. Defaults to ``None``.
-        database (str): Name of Database to open. Defaults to '*startkladde*'.        
+        database (str): Name of Database to open. Defaults to ``None``
+        schema (dict or None): Dictionary describing the underlying schema
+            of the database.
+        **kwargs: Additional keyword arguments forwarded verbatim to
+           :meth:`Database.connect`
     """
     def __init__(self, database=None, schema=None, **kwargs):
         self._db = None
@@ -20,13 +18,12 @@ class Database(object):
             self.connect(database=database, schema=schema, **kwargs)
     
     def connect(self, database, schema=None, **kwargs):
-        """Connect to MySQL server
-        
+        """Connect to server. Has to be implemented by derived class.
+
         Arguments:
-            host (str): Hostname. Defaults to '*localhost*'.
-            user (str): MySQL username. Defaults to '*startkladde*'.
-            password (str): Password for user. Defaults to ``None``.
-            database (str): Name of Database to open. Defaults to '*startkladde*'.
+            database (str): Name of Database to open.
+            schema (dict): Schema
+            **kwargs: Additional keyword arguments
         """
         raise NotImplementedError()
 
@@ -40,7 +37,7 @@ class Database(object):
         self._db.commit()
 
     def list_tables(self):
-        """Get list of table names
+        """Get list of table names. Has to be implemented by derived class.
                     
         Return:
             list: List of strings containing the table names
@@ -48,7 +45,7 @@ class Database(object):
         raise NotImplementedError()
 
     def get_table_info(self, table):
-        """Get information about a table
+        """Get information about a table. Has to be implemented by derived class
 
         Arguments:
             table (str): Name of the table
@@ -59,6 +56,11 @@ class Database(object):
         raise NotImplementedError()
 
     def get_schema(self):
+        """Get schema of this database
+
+        Return:
+            dict: Dictionary describing this table
+        """
         tables = self.list_tables()
         schema = dict()
 
@@ -66,16 +68,28 @@ class Database(object):
             schema[name] = self.get_table_info(name)
         return schema
 
-    def create_table(self, table, force=False):
+    def create_table(self, table_info, force=False):
+        """Create a new table
+        
+        Arguments:
+            table_info (:class:`fsgop.db.TableInfo`): Table information
+            force (bool): If ``True``, existing tables are overwritten without
+               warning. 
+        """
         _force = "" if force else " IF NOT EXISTS"
         _cols = ",".join(f"{col.name} {col.dtype}"
                          f"{'' if col.allows_null else ' NOT NULL'}"
                          f"{' PRIMARY KEY' if col.is_primary_index() else ''}"
                          f"DEFAULT {col.default()}"
-                         for col in table)
-        self._cursor.execute(f"CREATE TABLE{_force} {table.name}({_cols})")
+                         for col in table_info)
+        self._cursor.execute(f"CREATE TABLE{_force} {table_info.name}({_cols})")
 
     def export_schema(self):
+        """Export current schema
+
+        Returns:
+            dict: Dictionary with schema information
+        """
         if self.schema is None:
             return None
         return {k: v.export() for k, v in self.schema.items()}
