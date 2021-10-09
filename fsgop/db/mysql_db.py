@@ -7,10 +7,10 @@ class MysqlDatabase(Database):
     """MySql Database implementation
 
     Arguments:
-        host (str): Hostname. Defaults to '*localhost*'
-        user (str): MySQL username. Defaults to '*startkladde*'.
-        password (str): Password for user. Defaults to ``None``.
-        database (str): Name of Database to open. Defaults to '*startkladde*'.        
+        database (str): Name of Database to open.
+        schema (dict): Database schema to use
+        **kwargs: Keyword arguments passed verbatim to
+            :meth:`MysqlDatabase.connect`
     """
     def __init__(self, database=None, schema=None, **kwargs):
         super().__init__(database=database, schema=schema, **kwargs)
@@ -43,21 +43,37 @@ class MysqlDatabase(Database):
         return [t[0] for t in self._cursor.fetchall()]
 
     def get_table_info(self, name):
+        """Get information about a table
+
+        Arguments:
+            name (str): Table name. This is not translated with the current
+                schema.
+        Return:
+            fsgop.db.TableInfo: Table information
+        """
         table = TableInfo(name=name, indices=self.get_index_info(name))
         self._cursor.execute(f"DESCRIBE `{name}`")
         for rec in self._cursor.fetchall():
             table.add_column(ColumnInfo(name=rec[0],
                                         dtype=rec[1],
                                         allows_null=(rec[2].upper() == "YES"),
-                                        index=rec[3],
                                         default_value=rec[4],
                                         extra=rec[5].lower()))
         return table
 
-    def get_index_info(self, table):
+    def get_index_info(self, name):
+        """Get information about the indices of a table
+
+        Arguments:
+            name (str): Name of the table. This is not translated via the
+               current schema.
+        Return:
+            list: List containing one :class:`fsgop.db.IndexInfo` object per
+            index
+        """
         order = {"A": 1, "D": -1, "NULL": 0}
         indices = dict()
-        self._cursor.execute(f"SHOW INDEX FROM `{table}`")
+        self._cursor.execute(f"SHOW INDEX FROM `{name}`")
         for rec in self._cursor.fetchall():
             idx = indices.setdefault(
                 rec[2],
