@@ -85,6 +85,23 @@ class Database(object):
         _key = table_info.primary_key()
         self._cursor.execute(f"CREATE TABLE{_force} {_name}({_cols}, {_key})")
 
+        for name, idx in table_info.indices():
+            if idx.is_primary:
+                continue
+            self.create_index_for_table(_name, idx)
+
+    def create_index_for_table(self, name, index):
+        """Create index for a table
+
+        Arguments:
+            name (str): Table name
+            index (:class:`~fsgop.db.IndexInfo`): Information about the index
+        """
+        self._cursor.execute("CREATE"
+                             f"{' UNIQUE' if index.is_unique else ''} "
+                             f" INDEX {index.name} ON {name} "
+                             f"({index.key_format()})")
+
     def export_schema(self):
         """Export current schema
 
