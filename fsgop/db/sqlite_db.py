@@ -63,7 +63,6 @@ class SqliteDatabase(Database):
                 name=rec[1],
                 dtype=rec[2],
                 allows_null=(int(rec[3]) == 0),
-                index="PRI" if int(rec[5]) else "",
                 default_value=None if default_value.upper() == "NULL"
                                    else default_value))
         return table

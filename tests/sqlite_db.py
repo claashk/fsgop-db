@@ -19,6 +19,8 @@ class SqliteDatabaseTestCase(unittest.TestCase):
             DB_PATH.unlink()
 
     def create_db(self):
+        if DB_PATH.exists():
+            DB_PATH.unlink()
         return SqliteDatabase(self.path)
 
     def test_creation(self):
@@ -30,7 +32,17 @@ class SqliteDatabaseTestCase(unittest.TestCase):
         db = self.create_db()
         db.create_table(self.table_info("people"))
         schema = db.get_schema()
-        self.assertDictEqual(sk_schema['people'], schema['people'].as_dict())
+        actual = schema['people'].as_dict()
+        ref = sk_schema['people']
+
+        for col1, col2 in zip(ref['columns'], actual['columns']):
+            self.assertDictEqual({k: v for k, v in col1.items() if k != "extra"},
+                                 {k: v for k, v in col2.items() if k != "extra"})
+
+        for idx1, idx2 in zip(ref['indices'], actual['indices']):
+            ignore = "name" if idx1['is_primary'] else ""
+            self.assertDictEqual({k: v for k, v in idx1.items() if k != ignore},
+                                 {k: v for k, v in idx2.items() if k != ignore})
 
     @staticmethod
     def table_info(name):
