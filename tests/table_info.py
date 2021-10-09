@@ -32,15 +32,8 @@ class TableInfoTestCase(unittest.TestCase):
         self.assertIsNone(col.name)
         self.assertIsNone(col.dtype)
         self.assertFalse(col.allows_null)
-        self.assertIsNone(col.index)
         self.assertIsNone(col.default_value)
         self.assertEqual('', col.extra)
-
-    def test_is_primary_index(self):
-        col = ColumnInfo()
-        self.assertFalse(col.is_primary_index())
-        col.index = "PRI"
-        self.assertTrue(col.is_primary_index())
 
     def test_table_construction(self):
         t = TableInfo()
@@ -51,7 +44,7 @@ class TableInfoTestCase(unittest.TestCase):
 
         t2 = TableInfo(columns=self.get_columns(), indices=self.get_indices())
         self.assertEqual(2, t2.nidx)
-        self.assertSetEqual(set(["primary", "secondary"]), t2.indices)
+        self.assertSetEqual(set(["primary", "secondary"]), t2.index_names)
 
     def test_format(self):
         t = TableInfo()

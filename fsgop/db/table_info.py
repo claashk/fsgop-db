@@ -8,8 +8,6 @@ class ColumnInfo(object):
         name (str): Column name
         dtype (str): Data type
         allows_null (bool): ``True`` if and only if NULL is a valid value
-        index (str): Index type of this column. PRI (primary), UNI (unique) or
-           MUL (multiple)
         default_value (str): The default value for the column
         extra (str): Extra information, such as 'auto_increment'
         references(str): Name of a table, which is used to store information
@@ -19,25 +17,15 @@ class ColumnInfo(object):
                  name=None,
                  dtype=None,
                  allows_null=False,
-                 index=None,
                  default_value=None,
                  extra="",
                  references=None):
         self.name = name
         self.dtype = dtype
         self.allows_null = allows_null
-        self.index = index
         self.default_value = default_value
         self.extra = extra
         self.references = references
-
-    def is_primary_index(self):
-        """Check if column is the primary index
-
-        Return:
-            bool: ``True`` if and only if the current column is the primary index
-        """
-        return self.index == "PRI"
 
     def has_auto_increment(self):
         """Check if column is incremented automatically
@@ -84,6 +72,17 @@ class IndexInfo(object):
                 raise ValueError(f"Index '{self.name}' incomplete: Missing "
                                  f"information about {self._cols.count(None)} / "
                                  f"{len(self._cols)} indexed columns")
+
+    def __lt__(self, other):
+        return (not self.is_primary, self.name) < (not other.is_primary,
+                                                   other.name)
+
+    def __gt__(self, other):
+        return (not self.is_primary, self.name) > (not other.is_primary,
+                                                   other.name)
+
+    def __ge__(self, other):
+        return not (self < other)
 
     def add_column(self, name, order=1, sequence=None):
         """Add column to this index
@@ -167,8 +166,17 @@ class TableInfo(object):
         return tuple(c.name for c in self._cols)
 
     @property
-    def indices(self):
+    def index_names(self):
         return set(self._indices.keys())
+
+    def indices(self):
+        """Iterate over all indices of this table
+
+        Yields:
+            tuple(str, :class:`IndexInfo`): index name and :class:`IndexInfo`
+               object for each index
+        """
+        yield from self._indices.items()
 
     def add_column(self, col):
         """Insert a column into the table
@@ -201,7 +209,7 @@ class TableInfo(object):
             str: Format string for the first key marked as primary, empty string
             if no primary key is defined
         """
-        for name, idx in self._indices.items():
+        for name, idx in self.indices():
             if idx.is_primary:
                 return f"PRIMARY KEY ({idx.key_format()})"
         return ""
@@ -265,7 +273,7 @@ class TableInfo(object):
             The output can be imported using ``TableInfo.from_list(**output)``
         """
         return {"columns": [dict(vars(col).items()) for col in self._cols],
-                "indices": [idx.as_dict() for idx in self._indices.values()]}
+                "indices": [i.as_dict() for i in sorted(self._indices.values())]}
 
     @classmethod
     def from_list(cls, name, columns, indices=None):
