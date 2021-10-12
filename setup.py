@@ -43,6 +43,7 @@ setup(
         'setuptools',
         'sphinx',
         'sphinx-rtd-theme',
+        'mysqlclient',
         'numpy'
     ],
     author='TBD',
