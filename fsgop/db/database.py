@@ -1,3 +1,4 @@
+from datetime import datetime
 
 
 class Database(object):
@@ -10,10 +11,14 @@ class Database(object):
         **kwargs: Additional keyword arguments forwarded verbatim to
            :meth:`Database.connect`
     """
+    date_format = "%Y-%m-%d"
+    time_format = "%H:%M"
+    datetime_format = f"{date_format} {time_format}"
+
     def __init__(self, database=None, schema=None, **kwargs):
         self._db = None
         self._cursor = None
-        self.schema = None
+        self.schema = dict(schema) if schema is not None else None
         if database is not None:
             self.connect(database=database, schema=schema, **kwargs)
     
@@ -244,3 +249,26 @@ class Database(object):
         if id:
             return self.unique(name, where=f"{id_col}={uid}")
         return None
+
+    def get_parser(self, dtype):
+        """Get default parser for data types in this database
+
+        Arguments:
+            dtype (str): String identifying data type as listed in schema
+
+        Return:
+            callable: Function which applied to a string will yield the correct
+                datatype.
+        """
+        s = dtype.lower()
+        if "int" in s:
+            return lambda x: int(x) if x != r"\N" else None
+        if "real" in s or "floa" in s or "doub" in s:
+            return lambda x: float(x) if x != r"\N" else None
+        if s == "date":
+            return(lambda x: datetime.strptime(x, self.date_format).date()
+                   if x != r"\N" else None)
+        if s == "datetime":
+            return (lambda x: datetime.strptime(x, self.datetime_format)
+                    if x != r"\N" else None)
+        return lambda x: str(x) if x != r"\N" else None
