@@ -5,10 +5,6 @@ from datetime import datetime
 from fsgop.db import TableInfo, ColumnInfo, IndexInfo
 
 
-class Empty(object):
-    pass
-
-
 class TableInfoTestCase(unittest.TestCase):
     @staticmethod
     def get_columns():
@@ -66,14 +62,17 @@ class TableInfoTestCase(unittest.TestCase):
         self.assertRaises(KeyError, t.get_column, "col4")
 
     def test_tuple_conversion(self):
-        t = TableInfo(columns=self.get_columns())
-        rec = Empty()
-        rec.col1 = 1
-        rec.col4 = 42
-        rec.col3 = datetime(2012, 1, 23, 14, 15, 16)
-        rec.col2 = 2.1
+        t = TableInfo(name="Table", columns=self.get_columns())
+        aliases = dict(col1="first", col3="third")
+        TableRecord = t.record_type(aliases=aliases)
+
+        d1 = dict(first=1,
+                  third=datetime(2012, 1, 23, 14, 15, 16),
+                  col2=2.1)
+
+        rec = TableRecord(**d1)
         self.assertTupleEqual((1, 2.1, datetime(2012, 1, 23, 14, 15, 16)),
-                              t.get_record(rec))
+                              rec)
 
     def test_get_primary_key(self):
         t = TableInfo(columns=self.get_columns(), indices=self.get_indices())

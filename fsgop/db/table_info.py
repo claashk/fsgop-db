@@ -194,13 +194,17 @@ class TableInfo(object):
         """
         self._indices[idx.name] = idx
 
-    def format(self):
+    def format(self, placeholder="%s"):
         """Returns a tuple to be passed to INSERT INTO VALUES command.
-        
+
+        Arguments:
+            placeholder (str): Placeholder used for values to insert. Defaults
+               to ``'%s'``.
+
         Return:
             str: format string
         """
-        return f"({','.join(self.ncols * ['%s'])})"
+        return f"({','.join(self.ncols * [placeholder])})"
 
     def primary_key(self):
         """Get primary key statement
@@ -232,38 +236,32 @@ class TableInfo(object):
                 return col
         raise KeyError(f"No such column: '{name}'")
 
-    def iter_record(self, rec):
-        """Iterates over the columns of a given object
+    def record_type(self, name=None, aliases=None):
+        """Create a named tuple for this table
 
         Arguments:
-            rec (object): Object representing one record in this table. Shall
-                contain an attribute for each column in this table, where the
-                attribute name must match the respective name of the column in
-                this table.
-
-        Yields:
-            object: Attributes of ``cls`` corresponding to the columns of this
-                table.
+            name (str): Name of the returned namedtuple type
+            aliases (dict): Dictionary containing an alias as value for each
+               column name (key) in this table. Column names not in aliases will
+               be used unmodified.
         """
-        for col in self._cols:
-            yield getattr(rec, col.name)
+        _alias = aliases if aliases is not None else dict()
+        _name = name if name is not None else f"{self.name.capitalize()}Record"
+        return namedtuple(_name, [_alias.get(k, k) for k in self.columns])
 
-    def get_record(self, rec):
-        """Convert class into tuple based on attributes.
-        
+    def record_parser(self, get_parser):
+        """Create a parser for this table
+
         Arguments:
-            rec (object): Object representing one record in this table. Shall
-                contain an attribute for each column in this table, where the
-                attribute name must match the respective name of the column in
-                this table.
-        
+            get_parser (callable): Function returning a parser function for a
+               column given the dtype string of the column as input
+               (e.g. :meth:`fsgop.db.Database.get_parser`)
+
         Return:
-            tuple: Tuple intended for insertion into table
+            tuple: One callable per column in this table, which converts strings
+            to the appropriate data types of the column.
         """
-        return tuple(self.iter_record(rec))
-
-    def record_type(self, name):
-        return namedtuple(name, self.columns)
+        return tuple(get_parser(col.dtype) for col in self._cols)
 
     def as_dict(self):
         """Convert table information into a dictionary
@@ -280,7 +278,8 @@ class TableInfo(object):
         """Create a new TableInfo instance from a list of columns and indices
 
         Arguments:
-            columns (list): Iterable of dictionaries, where each dictionary
+            name (str): Table name
+            columns (iterable): Iterable of dictionaries, where each dictionary
                can be forwarded as keyword arguments to the ColumInfo
                constructor.
             indices (iterable): Iterable of dictionaries, where each dictionary
