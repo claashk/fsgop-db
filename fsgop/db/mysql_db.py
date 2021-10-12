@@ -1,6 +1,7 @@
 import MySQLdb as mysql
 from .database import Database
 from .table_info import TableInfo, ColumnInfo, IndexInfo
+from .table_io import CsvParser
 
 
 class MysqlDatabase(Database):
@@ -31,7 +32,8 @@ class MysqlDatabase(Database):
         """
         self._db = mysql.connect(host, user, password, database)
         self._cursor = self._db.cursor()
-        self.schema = self.get_schema() if schema is None else dict(schema)
+        if self.schema is None:
+            self.schema = self.get_schema()
 
     def list_tables(self):
         """Get list of table names
@@ -84,3 +86,31 @@ class MysqlDatabase(Database):
                            order=order[rec[5]],
                            sequence=int(rec[3]) - 1)
         return indices.values()
+
+    def iter_dump_file(self, path, table=None, reader=None, aliases=None):
+        """Import MySql dump file
+
+        Arguments:
+            path(str or pathlib.Path): Path to input file
+            table (str): Name of table to import. If ``None``, table name is
+                assumed to coincide with basename of file
+            reader (:class:`fsgop.db.CsvParser`): reader. If ``None``, a new
+               default reader will be constructed.
+            aliases (dict or None): Dictionary containing a column name and an
+               alias for this column name. The resulting namedtuple will use
+               the aliases as column names. Names not found in aliases will
+               remain unchanged.
+
+        Yields:
+            namedtuple: One namedtuple per record of the input file
+        """
+        if table is None:
+            table = path.stem
+        if reader is None:
+            reader = CsvParser()
+        table_info = self.schema[table]
+        reader.row_type = table_info.record_type(aliases=aliases)
+        parsers = table_info.record_parser(self.get_parser)
+
+        for rec in reader(str(path), skip_rows=0, delimiter="\t"):
+            yield reader.row_type(*tuple(p(x) for p, x in zip(parsers, rec)))
