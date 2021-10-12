@@ -26,6 +26,7 @@ class SqliteDatabase(Database):
         """
         self._db = sqlite3.connect(database, **kwargs)
         self._cursor = self._db.cursor()
+        self._cursor.execute("PRAGMA foreign_keys = ON")
         self.schema = self.get_schema() if schema is None else dict(schema)
 
     def list_tables(self):
@@ -54,6 +55,18 @@ class SqliteDatabase(Database):
                                sequence=rec[0])
         return indices
 
+    def get_references(self, table, column):
+        self._cursor.execute(f"PRAGMA foreign_key_list('{table}')")
+
+        ref = [(r[2], r[4]) for r in self._cursor.fetchall() if r[3] == column]
+        if not ref:
+            return None
+
+        if len(ref) > 1:
+            raise RuntimeError(f"Expected at most one column, found {len(ref)}")
+
+        return f"{ref[0][0]}({ref[0][1]})"
+
     def get_table_info(self, name):
         table = TableInfo(name=name, indices=self.get_index_info(name))
         self._cursor.execute(f"PRAGMA table_info('{name}')")
@@ -65,4 +78,7 @@ class SqliteDatabase(Database):
                 allows_null=(int(rec[3]) == 0),
                 default_value=None if default_value.upper() == "NULL"
                                    else default_value))
+        for col in table:
+            col.references = self.get_references(table.name, col.name)
+
         return table

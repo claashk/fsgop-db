@@ -44,6 +44,11 @@ class SqliteDatabaseTestCase(unittest.TestCase):
             self.assertDictEqual({k: v for k, v in idx1.items() if k != ignore},
                                  {k: v for k, v in idx2.items() if k != ignore})
 
+    def test_create_database(self):
+        db = self.create_db()
+        for name in sk_schema.keys():
+            db.create_table(self.table_info(name))
+
     @staticmethod
     def table_info(name):
         return TableInfo.from_list(name=name, **sk_schema[name])

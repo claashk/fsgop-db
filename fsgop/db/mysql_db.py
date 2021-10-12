@@ -66,8 +66,8 @@ class MysqlDatabase(Database):
         return table
 
     def get_references(self, table, column):
-        self._cursor.execute("database()")
-        db_name = self._cursor.fetchall()
+        self._cursor.execute("SELECT database()")
+        db_name = "".join(rec[0] for rec in self._cursor.fetchall())
         self._cursor.execute("SELECT REFERENCED_TABLE_NAME, "
                              "REFERENCED_COLUMN_NAME "
                              "FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE "
@@ -76,7 +76,7 @@ class MysqlDatabase(Database):
                              f"AND COLUMN_NAME = '{column}'")
         ref = list(self._cursor.fetchall())
         if not ref:
-            return ""
+            return None
 
         if len(ref) > 1:
             raise RuntimeError(f"Expected at most one column, found {len(ref)}")
