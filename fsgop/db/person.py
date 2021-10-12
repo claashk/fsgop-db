@@ -75,14 +75,14 @@ class Person(Record):
                  kind=None,
                  comments=None):
         super().__init__()
+        self.uid = to(int, uid, default=None)
         self.last_name = to(str, last_name, default="").strip()
         self.first_name = to(str, first_name, default="").strip()
-        self.uid = to(int, uid, default=None)
-        self.comments = to(str, comments, default="").strip()
-        self.kind = PERSON_KINDS[kind] if kind is not None else NATURAL_PERSON
         self.gender = to(str, gender, default=None)
         self.birthday = to(date, birthday, default=None)
         self.birthplace = to(str, birthplace, default=None)
+        self.kind = PERSON_KINDS[kind] if kind is not None else NATURAL_PERSON
+        self.comments = to(str, comments, default="").strip()
 
         if title is None:
             self.last_name, title = split_title(self.last_name)
