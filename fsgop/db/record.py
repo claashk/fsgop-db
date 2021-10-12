@@ -67,16 +67,20 @@ class Record(object):
         """
         return tuple(getattr(self, x) for x in self.index)
 
-    def to(self, t):
+    def to(self, t, format=False):
         """Convert to namedtuple
 
         Arguments:
             t (namedtuple): A namedtuple type
+            format (bool): If ``True`` field values will be converted to
+                strings. Otherwise, they will be passed as native types.
 
         Return:
             t: Namedtuple instance
         """
-        return t._make(self.format(x) for x in t._fields)
+        if format:
+            return t._make(self.format(x) for x in t._fields)
+        return t._make(getattr(self, x) for x in t._fields)
 
     def format(self, name):
         """Convert an attribute to a string
