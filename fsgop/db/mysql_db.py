@@ -61,7 +61,27 @@ class MysqlDatabase(Database):
                                         allows_null=(rec[2].upper() == "YES"),
                                         default_value=rec[4],
                                         extra=rec[5].lower()))
+        for col in table:
+            col.references = self.get_references(table.name, col.name)
         return table
+
+    def get_references(self, table, column):
+        self._cursor.execute("database()")
+        db_name = self._cursor.fetchall()
+        self._cursor.execute("SELECT REFERENCED_TABLE_NAME, "
+                             "REFERENCED_COLUMN_NAME "
+                             "FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE "
+                             f"WHERE REFERENCED_TABLE_SCHEMA = '{db_name}' "
+                             f"AND TABLE_NAME = '{table}' "
+                             f"AND COLUMN_NAME = '{column}'")
+        ref = list(self._cursor.fetchall())
+        if not ref:
+            return ""
+
+        if len(ref) > 1:
+            raise RuntimeError(f"Expected at most one column, found {len(ref)}")
+
+        return f"{ref[0][0]}({ref[0][1]})"
 
     def get_index_info(self, name):
         """Get information about the indices of a table

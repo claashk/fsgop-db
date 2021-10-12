@@ -46,6 +46,17 @@ class ColumnInfo(object):
             return "NULL"
         return f"'{self.default_value}'"
 
+    def sql_references(self):
+        """Get SQL reference statement for this column
+
+        Return:
+            str: References statement or empty string, if no references are
+            defined.
+        """
+        if self.references:
+            return f" REFERENCES {self.references}"
+        return ""
+
 
 class IndexInfo(object):
     """Stores information about an index for a given table

@@ -86,6 +86,7 @@ class Database(object):
         _cols = ",".join(f"{col.name} {col.dtype}"
                          f"{'' if col.allows_null else ' NOT NULL'} "
                          f"DEFAULT {col.default()}"
+                         f"{col.sql_references()}"
                          for col in table_info)
         _key = table_info.primary_key()
         self._cursor.execute(f"CREATE TABLE{_force} {_name}({_cols}, {_key})")
