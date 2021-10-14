@@ -49,6 +49,18 @@ class SqliteDatabaseTestCase(unittest.TestCase):
         for name in sk_schema.keys():
             db.create_table(self.table_info(name))
 
+        schema = db.get_schema()
+        self.assertSetEqual({"flights",
+                             "launch_methods",
+                             "people",
+                             "planes",
+                             "schema_migrations"},
+                            set(schema.keys()))
+        self.assertEqual("plane_id",
+                         schema["flights"].get_column("plane_id").name)
+        self.assertEqual("planes(id)",
+                         schema["flights"].get_column("plane_id").references)
+
     @staticmethod
     def table_info(name):
         return TableInfo.from_list(name=name, **sk_schema[name])
