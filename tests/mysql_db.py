@@ -6,8 +6,7 @@ from datetime import date
 
 from fsgop.db import TableInfo
 from fsgop.db.startkladde import schema_v3 as vz_schema
-from fsgop.db import MysqlDatabase
-
+from fsgop.db import MysqlDatabase, Person
 
 TEST_DIR = Path(__file__).parent
 
@@ -27,6 +26,15 @@ class MysqlDatabaseTestCase(unittest.TestCase):
         self.assertEqual(1, recs[1].check_medical_validity)
         self.assertEqual("FSG-HH", recs[1].club)
         self.assertEqual("Newton", recs[2].last_name)
+
+        attrs = Person.fields_in(type(recs[0])._fields)
+        self.assertSetEqual({"first_name", "last_name", "birthday", "comments"},
+                            attrs)
+        persons = [Person.from_obj(rec, attrs=attrs) for rec in recs]
+        self.assertEqual(3, len(persons))
+        self.assertEqual("Otto", persons[0].first_name)
+        self.assertEqual("Lilienthal", persons[0].last_name)
+        self.assertIsNone(persons[0].uid)
 
 
 def suite():
