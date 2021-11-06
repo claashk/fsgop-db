@@ -2,6 +2,7 @@
 
 import unittest
 from fsgop.db import Person
+import fsgop.db.person
 from fsgop.db.person import split_title, split_count
 
 from datetime import date
@@ -41,7 +42,7 @@ class PersonTestCase(unittest.TestCase):
         self.assertEqual("", person.title)
         self.assertEqual("", person.comments)
         self.assertIsNone(person.uid)
-        self.assertIsNone(person.count)
+        self.assertEqual(1, person.count)
 
         p = Person(first_name="Otto",
                    last_name="Prof. Dr. Lilienthal",
@@ -59,7 +60,7 @@ class PersonTestCase(unittest.TestCase):
         self.assertEqual("Dr. Lilienthal", p.last_name)
         self.assertEqual("", p.title)
         self.assertEqual(date(1848, 5, 23), p.birthday)
-        self.assertIsNone(p.count)
+        self.assertEqual(1, p.count)
 
         p = Person(first_name="Otto (3)", last_name="Lilienthal")
         self.assertEqual("Otto", p.first_name)
@@ -73,7 +74,6 @@ class PersonTestCase(unittest.TestCase):
                              "comments",
                              "birthday",
                              "birthplace",
-                             "gender",
                              "count",
                              "uid",
                              "kind"}, Person.fields())
@@ -83,25 +83,25 @@ class PersonTestCase(unittest.TestCase):
     def test_from_dict(self):
         d = {"first_name": "Otto",
              "last_name": "Lilienthal",
-             "gender": "male",
+             "kind": "male",
              "count": None,
              "age": "180"}
         p = Person.from_dict(d)
         self.assertIsInstance(p, Person)
         self.assertEqual("Otto", p.first_name)
         self.assertEqual("Lilienthal", p.last_name)
-        self.assertIsNone(p.gender)
+        self.assertIsNone(p.kind)
 
         common_fields = Person.fields_in(d.keys())
         p = Person.from_dict(d, common_fields)
         self.assertIsInstance(p, Person)
         self.assertEqual("Otto", p.first_name)
         self.assertEqual("Lilienthal", p.last_name)
-        self.assertEqual("male", p.gender)
+        self.assertEqual(fsgop.db.person.PERSON_MALE, p.kind)
 
     def test_from_namedtuple(self):
         TupleType = namedtuple("TupleType",
-                               ["first_name", "last_name", "age", "gender"])
+                               ["first_name", "last_name", "age", "kind"])
         t = TupleType("Otto", "Lilienthal", 45, "male")
 
         recognised_fields = Person.fields_in(TupleType._fields)
@@ -109,13 +109,13 @@ class PersonTestCase(unittest.TestCase):
         self.assertIsInstance(p, Person)
         self.assertEqual("Otto", p.first_name)
         self.assertEqual("Lilienthal", p.last_name)
-        self.assertIsNone(p.gender)
+        self.assertIsNone(p.kind)
 
         p = Person.from_obj(t, recognised_fields)
         self.assertIsInstance(p, Person)
         self.assertEqual("Otto", p.first_name)
         self.assertEqual("Lilienthal", p.last_name)
-        self.assertEqual("male", p.gender)
+        self.assertEqual(fsgop.db.person.PERSON_MALE, p.kind)
 
     def test_username(self):
         p = Person()
