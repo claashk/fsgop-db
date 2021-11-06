@@ -2,6 +2,7 @@
 
 import unittest
 from fsgop.db import Person
+from fsgop.db.utils import to
 import fsgop.db.person
 from fsgop.db.person import split_title, split_count
 
@@ -142,6 +143,10 @@ class PersonTestCase(unittest.TestCase):
         self.assertTrue(p1 < p3)
         self.assertEqual(p1, p2)
         self.assertNotEqual(p1, p3)
+
+    def test_uid_construction(self):
+        p = to(Person, 5)
+        self.assertEqual(5, p.uid)
 
 
 def suite():

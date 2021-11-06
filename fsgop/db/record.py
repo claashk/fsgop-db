@@ -9,8 +9,8 @@ class Record(object):
     """
     index = []
 
-    def __init__(self):
-        pass
+    def __init__(self, uid=None):
+        self.uid = to(int, uid, default=None)
 
     def __str__(self):
         """Convert instance to string
@@ -19,6 +19,9 @@ class Record(object):
             str: String representation of this record
         """
         return " ".join([self.format(x) for x in self.index])
+
+    def __int__(self):
+        return self.uid
 
     def __repr__(self):
         return f"{type(self).__name__} ({str(self)})"

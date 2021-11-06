@@ -81,8 +81,7 @@ class Person(Record):
                  count=None,
                  kind=None,
                  comments=None):
-        super().__init__()
-        self.uid = to(int, uid, default=None)
+        super().__init__(uid=uid)
         self.last_name = to(str, last_name, default="").strip()
         self.first_name = to(str, first_name, default="").strip()
         self.birthday = to(date, birthday, default=None)
