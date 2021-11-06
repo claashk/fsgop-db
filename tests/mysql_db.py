@@ -12,7 +12,7 @@ TEST_DIR = Path(__file__).parent
 
 
 class MysqlDatabaseTestCase(unittest.TestCase):
-    def test_iter_dump_file(self):
+    def test_import_person_from_dump_file(self):
         schema = {k: TableInfo.from_list(k, **v) for k, v in vz_schema.items()}
         db = MysqlDatabase(schema=schema)
         recs = list(db.iter_dump_file(TEST_DIR / "mysql-dump.tsv",

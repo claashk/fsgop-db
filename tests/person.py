@@ -147,6 +147,7 @@ class PersonTestCase(unittest.TestCase):
     def test_uid_construction(self):
         p = to(Person, 5)
         self.assertEqual(5, p.uid)
+        self.assertEqual(5, int(p))
 
 
 def suite():
