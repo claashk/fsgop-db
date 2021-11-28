@@ -144,6 +144,24 @@ class PersonTestCase(unittest.TestCase):
         self.assertEqual(p1, p2)
         self.assertNotEqual(p1, p3)
 
+        p4 = Person(uid=5, first_name="Otto", last_name="Lilienthal")
+        # names should be preferred over uid when matching
+        self.assertTrue(p4 == p1)
+        self.assertTrue(p4 == p2)
+        self.assertTrue(p4 < p3)
+
+        p5 = Person(uid=5)
+
+        # ideally the next line should raise, but an equal comparison between
+        # tuples and integers is possible, while a less comparison is not
+        self.assertFalse(p4 == p5)
+        with self.assertRaises(TypeError):
+            _x = p4 < p5
+
+        p4.first_name = ""
+        p4.last_name = ""
+        self.assertEqual(p4, p5)  # comparison by uid if index cannot be created
+
     def test_uid_construction(self):
         p = to(Person, 5)
         self.assertEqual(5, p.uid)
