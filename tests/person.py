@@ -149,8 +149,10 @@ class PersonTestCase(unittest.TestCase):
         self.assertTrue(p4 == p1)
         self.assertTrue(p4 == p2)
         self.assertTrue(p4 < p3)
+        self.assertEqual(("Lilienthal", "Otto", 1), p4)  # key comparison
 
         p5 = Person(uid=5)
+        self.assertEqual(p5, 5)  # key comparison
 
         # ideally the next line should raise, but an equal comparison between
         # tuples and integers is possible, while a less comparison is not
@@ -161,6 +163,29 @@ class PersonTestCase(unittest.TestCase):
         p4.first_name = ""
         p4.last_name = ""
         self.assertEqual(p4, p5)  # comparison by uid if index cannot be created
+
+    def test_hash(self):
+        p1 = Person(first_name="Otto", last_name="Lilienthal")
+        p2 = Person(first_name="Otto", last_name="Prof. Dr. Lilienthal")
+        p3 = Person(first_name="Otto B.", last_name="Prof. Dr. Lilienthal")
+        p4 = Person()
+
+        s = {p1, p2, p3, p4}
+        self.assertEqual(3, len(s))
+
+        s.add(None)
+        self.assertEqual(3, len(s))  # None equals empty Record
+
+        result = []
+        for p in s:
+            if p is not p4:
+                self.assertTrue(p)
+                result.append(1)
+            else:
+                self.assertFalse(p)
+                result.append(0)
+        self.assertEqual(2, result.count(1))
+        self.assertEqual(1, result.count(0))
 
     def test_uid_construction(self):
         p = to(Person, 5)

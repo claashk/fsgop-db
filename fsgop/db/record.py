@@ -27,6 +27,9 @@ class Record(object):
         """
         return int(self.uid)
 
+    def __bool__(self):
+        return self.key() is not None
+
     def __repr__(self) -> str:
         return f"{type(self).__name__} ({str(self)})"
 
@@ -41,7 +44,9 @@ class Record(object):
         Returns:
             ``True`` if and only if ``self`` and *other* are equal.
         """
-        return self.key() == other.key()
+        if isinstance(other, Record):
+            return self.key() == other.key()
+        return self.key() == other
 
     def __lt__(self, other: "Record") -> bool:
         """Less comparison by key
