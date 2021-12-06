@@ -12,20 +12,18 @@ class VehicleTestCase(unittest.TestCase):
 
     def test_construction(self):
         v = Vehicle()
-        self.assertEqual("", v.manufacturer)
-        self.assertEqual("", v.model)
-        self.assertEqual("", v.serial)
+        self.assertIsNone(v.manufacturer)
+        self.assertIsNone(v.model)
+        self.assertIsNone(v.serial_number)
         self.assertEqual(1, v.num_seats)
         self.assertIsNone(v.uid)
         self.assertIsNone(v.category)
 
-        v1 = Vehicle(manufacturer="Grob",
-                     model="G 103",
-                     serial="G 103 123456",
-                     num_seats="2")
+        v1 = Vehicle(manufacturer="Grob", model="G 103",
+                     serial_number="G 103 123456", num_seats="2")
         self.assertEqual("Grob", v1.manufacturer)
         self.assertEqual("G 103", v1.model)
-        self.assertEqual("G 103 123456", v1.serial)
+        self.assertEqual("G 103 123456", v1.serial_number)
         self.assertEqual(2, v1.num_seats)
 
     def test_fields(self):
@@ -34,7 +32,7 @@ class VehicleTestCase(unittest.TestCase):
                              "model",
                              "comments",
                              "num_seats",
-                             "serial",
+                             "serial_number",
                              "category"},
                             Vehicle.fields())
 
@@ -45,12 +43,12 @@ class VehicleTestCase(unittest.TestCase):
              "model": "G 103B",
              "club": "FSG Schwaben",
              "category": 2,
-             "serial": "321"}
+             "serial_number": "321"}
         v = Vehicle.from_dict(d)
         self.assertIsInstance(v, Vehicle)
         self.assertEqual("Grob", v.manufacturer)
-        self.assertEqual("", v.model)
-        self.assertEqual("321", v.serial)
+        self.assertIsNone(v.model)
+        self.assertEqual("321", v.serial_number)
         self.assertIsNone(v.category)
 
         common_fields = Vehicle.fields_in(d.keys())
@@ -59,29 +57,29 @@ class VehicleTestCase(unittest.TestCase):
         self.assertEqual("Grob", v.manufacturer)
         self.assertEqual("G 103B", v.model)
         self.assertEqual(2, v.category)
-        self.assertEqual("321", v.serial)
+        self.assertEqual("321", v.serial_number)
 
     def test_from_namedtuple(self):
         TupleType = namedtuple("TupleType",
-                               ["manufacturer", "model", "club", "serial"])
+                               ["manufacturer", "model", "club", "serial_number"])
         t = TupleType("Grob", "G103B", "A club", "321")
         recognised_fields = Vehicle.fields_in(TupleType._fields)
         v = Vehicle.from_obj(t, ["manufacturer", "model"])
         self.assertIsInstance(v, Vehicle)
         self.assertEqual("Grob", v.manufacturer)
         self.assertEqual("G103B", v.model)
-        self.assertEqual("", v.serial)
+        self.assertIsNone(v.serial_number)
 
         v = Vehicle.from_obj(t, recognised_fields)
         self.assertIsInstance(v, Vehicle)
         self.assertEqual("Grob", v.manufacturer)
         self.assertEqual("G103B", v.model)
-        self.assertEqual("321", v.serial)
+        self.assertEqual("321", v.serial_number)
 
     def test_comparison(self):
-        v1 = Vehicle(manufacturer="Grob", model="G103B", serial="AB321")
-        v2 = Vehicle(manufacturer="Grob", model="G103C", serial="AB321")
-        v3 = Vehicle(manufacturer="Grob", model="G103B", serial="CD321")
+        v1 = Vehicle(manufacturer="Grob", model="G103B", serial_number="AB321")
+        v2 = Vehicle(manufacturer="Grob", model="G103C", serial_number="AB321")
+        v3 = Vehicle(manufacturer="Grob", model="G103B", serial_number="CD321")
         self.assertFalse(v1 < v2)
         self.assertFalse(v2 < v1)
         self.assertTrue(v1 < v3)
