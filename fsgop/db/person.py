@@ -1,8 +1,9 @@
 import re
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, Tuple, Union
 
 from .record import Record, to
+from .property import Property
 from .utils import ASCII
 
 COUNTER_PATTERN = re.compile(r"(.+)\((\d+)\)")
@@ -67,11 +68,11 @@ class Person(Record):
         title: Title(s) of this person
         birthday: Birthday
         birthplace: Birthplace
-        count (int): An integer making the first_name last_name combination
-            unique, if required.
-        kind (int or str): The kind of person this record describes. Defaults to
-            natural person, but organizations are possible, too.
-        comments (str): Comments field.
+        count: An integer making the first_name last_name combination unique, if
+            required.
+        kind: The kind of person this record describes. Defaults to natural
+            person, but organizations are possible, too.
+        comments: Comments field.
     """
     index = ["last_name", "first_name", "count"]
 
@@ -126,4 +127,34 @@ class Person(Record):
         if f"{self.first_name}{self.last_name}" == "":
             return None
         return super().index_tuple()
+
+
+class PersonProperties(Property):
+    """Person properties
+
+    Arguments:
+        uid: Unique ID of this property record
+        person: Person this property describes. An integer is interpreted as
+            uid.
+        valid_from: Date from which on this property is valid. ``None`` if it is
+           valid since the dawn of time
+        valid_until: Date after which this property expires. Use ``None`` to
+           indicate that the property does not expire
+        key: Key describing this property
+        value: Property value
+    """
+    def __init__(self,
+                 uid: Optional[int] = None,
+                 person: Optional[Union[Person, int]] = None,
+                 valid_from: Optional[datetime] = None,
+                 valid_until: Optional[datetime] = None,
+                 key: Optional[str] = None,
+                 value: Optional[str] = None) -> None:
+        super().__init__(self,
+                         uid=uid,
+                         rec=to(Person, person),
+                         valid_from=valid_from,
+                         valid_until=valid_until,
+                         key=key,
+                         value=value)
 
