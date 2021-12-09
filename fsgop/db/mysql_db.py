@@ -1,4 +1,6 @@
+from typing import Optional, Union, List, Iterable, NamedTuple, Generator
 import MySQLdb as mysql
+from pathlib import Path
 from .database import Database
 from .table_info import TableInfo, ColumnInfo, IndexInfo
 from .table_io import CsvParser
@@ -7,51 +9,57 @@ from .table_io import CsvParser
 class MysqlDatabase(Database):
     """MySql Database implementation
 
-    Arguments:
-        database (str): Name of Database to open.
-        schema (dict): Database schema to use
+    Args:
+        database: Name of Database to open.
+        schema: Database schema to use
         **kwargs: Keyword arguments passed verbatim to
             :meth:`MysqlDatabase.connect`
     """
-    def __init__(self, database=None, schema=None, **kwargs):
+    placeholder = "%s"
+
+    def __init__(self,
+                 database: Optional[str] = None,
+                 schema: Optional[dict] = None,
+                 **kwargs) -> None:
         super().__init__(database=database, schema=schema, **kwargs)
 
     def connect(self,
-                database,
-                schema=None,
-                host="localhost",
-                user="user",
-                password=None):
+                database: Optional[str] = None,
+                schema: Optional[dict] = None,
+                host: str = "localhost",
+                user: str = "user",
+                password: Optional[str] = None) -> None:
         """Connect to MySQL server
         
-        Arguments:
-            host (str): Hostname. Defaults to '*localhost*'.
-            user (str): MySQL username. Defaults to '*startkladde*'.
-            password (str): Password for user. Defaults to ``None``.
-            database (str): Name of Database to open. Defaults to '*startkladde*'.
+        Args:
+            database: Name of Database to open. Defaults to ``None``.
+            schema: Database schema to use. Defaults to ``None``.
+            host: Hostname. Defaults to ``'localhost'``.
+            user: MySQL username. Defaults to ``'user'``.
+            password: Password for user. Defaults to ``None``.
         """
         self._db = mysql.connect(host, user, password, database)
         self._cursor = self._db.cursor()
         if self.schema is None:
             self.schema = self.get_schema()
 
-    def list_tables(self):
+    def list_tables(self) -> List[str]:
         """Get list of table names
                     
-        Return:
-            list: List of strings containing the table names
+        Returns:
+            List of strings containing the table names
         """
         self._cursor.execute("SHOW TABLES")
         return [t[0] for t in self._cursor.fetchall()]
 
-    def get_table_info(self, name):
+    def get_table_info(self, name: str) -> TableInfo:
         """Get information about a table
 
-        Arguments:
-            name (str): Table name. This is not translated with the current
-                schema.
-        Return:
-            fsgop.db.TableInfo: Table information
+        Args:
+            name: Table name. This is not translated with the current schema.
+
+        Returns:
+            Table information
         """
         table = TableInfo(name=name, indices=self.get_index_info(name))
         self._cursor.execute(f"DESCRIBE `{name}`")
@@ -65,7 +73,9 @@ class MysqlDatabase(Database):
             col.references = self.get_references(table.name, col.name)
         return table
 
-    def get_references(self, table, column):
+    def get_references(self, table: str, column: str) -> Optional[str]:
+        """Get column referenced by column in another table
+        """
         self._cursor.execute("SELECT database()")
         db_name = "".join(rec[0] for rec in self._cursor.fetchall())
         self._cursor.execute("SELECT REFERENCED_TABLE_NAME, "
@@ -83,15 +93,14 @@ class MysqlDatabase(Database):
 
         return f"{ref[0][0]}({ref[0][1]})"
 
-    def get_index_info(self, name):
+    def get_index_info(self, name: str) -> Iterable[IndexInfo]:
         """Get information about the indices of a table
 
-        Arguments:
-            name (str): Name of the table. This is not translated via the
-               current schema.
-        Return:
-            list: List containing one :class:`fsgop.db.IndexInfo` object per
-            index
+        Args:
+            name: Name of the table. This is not translated via current schema.
+
+        Returns:
+            List containing one :class:`fsgop.db.IndexInfo` object per index
         """
         order = {"A": 1, "D": -1, "NULL": 0}
         indices = dict()
@@ -107,22 +116,27 @@ class MysqlDatabase(Database):
                            sequence=int(rec[3]) - 1)
         return indices.values()
 
-    def iter_dump_file(self, path, table=None, reader=None, aliases=None):
+    def iter_dump_file(self,
+                       path: Union[str, Path],
+                       table: Optional[str] = None,
+                       reader: Optional[CsvParser] = None,
+                       aliases: Optional[dict] = None) -> Generator[NamedTuple,
+                                                                    None,
+                                                                    None]:
         """Import MySql dump file
 
-        Arguments:
-            path(str or pathlib.Path): Path to input file
-            table (str): Name of table to import. If ``None``, table name is
-                assumed to coincide with basename of file
-            reader (:class:`fsgop.db.CsvParser`): reader. If ``None``, a new
-               default reader will be constructed.
-            aliases (dict or None): Dictionary containing a column name and an
-               alias for this column name. The resulting namedtuple will use
-               the aliases as column names. Names not found in aliases will
-               remain unchanged.
+        Args:
+            path: Path to input file
+            table: Name of table to import. If ``None``, table name is assumed to
+                coincide with basename of file
+            reader: CSV file parser. If ``None``, a new default reader will be
+                constructed.
+            aliases: Dictionary containing a column name and an alias for
+                selected columns. The resulting namedtuple will use the aliases
+                as column names. Names not found in aliases remain unchanged.
 
         Yields:
-            namedtuple: One namedtuple per record of the input file
+            One namedtuple per record of the input file
         """
         if table is None:
             table = path.stem
