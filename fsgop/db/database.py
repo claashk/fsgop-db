@@ -174,7 +174,7 @@ class Database(object):
         table = self.schema[name]
         command = str(f"{'REPLACE' if force else 'INSERT IGNORE'} "
                       f"INTO {table.name} "
-                      f"VALUES ({','.join(table.ncols * [self.placeholder])})")
+                      f"VALUES {table.format(self.placeholder)}")
         self._cursor.executemany(command, rows)
 
     def delete(self, name: str, where: Optional[str] = None, **kwargs) -> None:

@@ -1,25 +1,26 @@
+from typing import Optional, Iterable, Generator, Tuple, Callable
 from collections import namedtuple
 
 
 class ColumnInfo(object):
     """Stores meta data for a column of a (MySQL) Table
 
-    Arguments:
-        name (str): Column name
-        dtype (str): Data type
-        allows_null (bool): ``True`` if and only if NULL is a valid value
-        default_value (str): The default value for the column
-        extra (str): Extra information, such as 'auto_increment'
-        references(str): Name of a table, which is used to store information
-            referenced in this column, e.g. "Person.uid"
+    Args:
+        name: Column name
+        dtype: Data type
+        allows_null: ``True`` if and only if NULL is a valid value
+        default_value: The default value for the column
+        extra: Extra information, such as 'auto_increment'
+        references: Name of a table, which is used to store information
+            referenced in this column, e.g. "Person(uid)"
     """
     def __init__(self,
-                 name=None,
-                 dtype=None,
-                 allows_null=False,
-                 default_value=None,
-                 extra="",
-                 references=None):
+                 name: Optional[str] = None,
+                 dtype: Optional[str] = None,
+                 allows_null: bool = False,
+                 default_value: Optional[str] = None,
+                 extra: str = "",
+                 references: Optional[str] = None) -> None:
         self.name = name
         self.dtype = dtype
         self.allows_null = allows_null
@@ -27,31 +28,30 @@ class ColumnInfo(object):
         self.extra = extra
         self.references = references
 
-    def has_auto_increment(self):
+    def has_auto_increment(self) -> bool:
         """Check if column is incremented automatically
 
-        Return:
-            bool: ``True`` if and only if the current column is incremented
+        Returns:
+            ``True`` if and only if the current column is incremented
             automatically
         """
         return "auto_increment" in self.extra
 
-    def default(self):
+    def default(self) -> str:
         """Default value as escaped string required in MySQL statements
 
-        Return:
-            str: '<val>' or NULL
+        Returns:
+            '<val>' or NULL
         """
         if self.default_value is None:
             return "NULL"
         return f"'{self.default_value}'"
 
-    def sql_references(self):
+    def sql_references(self) -> str:
         """Get SQL reference statement for this column
 
-        Return:
-            str: References statement or empty string, if no references are
-            defined.
+        Returns:
+            References statement or empty string, if no references are defined.
         """
         if self.references:
             return f" REFERENCES {self.references}"
@@ -61,16 +61,18 @@ class ColumnInfo(object):
 class IndexInfo(object):
     """Stores information about an index for a given table
 
-    Arguments:
-        name (str): Name of the index
-        unique (bool): ``True`` if and only if the index is unique
-        primary (bool): ``True`` if and only if this is the primary index for
-           the table.
-        columns (iterable): List of tuples, where each tuple contains the
-           arguments to :meth:`IndexInfo.add_column` for the column to add to
-           this index.
+    Args:
+        name: Name of the index
+        is_unique: ``True`` if and only if the index is unique
+        is_primary: ``True`` if and only if this is the primary index.
+        columns: List of tuples, where each tuple contains the arguments to
+            :meth:`IndexInfo.add_column` for the column to add to this index.
     """
-    def __init__(self, name, is_unique=False, is_primary=False, columns=None):
+    def __init__(self,
+                 name: str,
+                 is_unique: bool = False,
+                 is_primary: bool = False,
+                 columns: Optional[Iterable[tuple]] = None) -> None:
         self.name = name
         self.is_unique = bool(is_unique)
         self.is_primary = bool(is_primary)
@@ -84,25 +86,31 @@ class IndexInfo(object):
                                  f"information about {self._cols.count(None)} / "
                                  f"{len(self._cols)} indexed columns")
 
-    def __lt__(self, other):
+    def __lt__(self, other: "IndexInfo") -> bool:
+        """Less comparison by is_primary and name"""
         return (not self.is_primary, self.name) < (not other.is_primary,
                                                    other.name)
 
-    def __gt__(self, other):
+    def __gt__(self, other: "IndexInfo") -> bool:
+        """Greater comparison by is_primary and name"""
         return (not self.is_primary, self.name) > (not other.is_primary,
                                                    other.name)
 
-    def __ge__(self, other):
+    def __ge__(self, other: "IndexInfo") -> bool:
         return not (self < other)
 
-    def add_column(self, name, order=1, sequence=None):
+    def add_column(self,
+                   name: str,
+                   order: int = 1,
+                   sequence: Optional[int] = None) -> None:
         """Add column to this index
 
-        Arguments:
-            name (str): Name of the column
-            sequence (int): Zero based index of the column within the index
-            order (int): Order of the column ("1" for ascending, "-1" for
-               descending, or "0" for unsorted)
+        Args:
+            name: Name of the column
+            order: Order of the column ("1" for ascending, "-1" for descending,
+                "0" for unsorted)
+            sequence: Zero based index of the column within the index. Defaults
+                to the current number of columns.
         """
         i = int(sequence) if sequence is not None else len(self._cols)
         n_missing = i + 1 - len(self._cols)
@@ -110,11 +118,12 @@ class IndexInfo(object):
             self._cols.extend(n_missing * [None])
         self._cols[i] = (str(name), int(order))
 
-    def key_format(self):
-        """Get SQL KEY"""
+    def key_format(self) -> str:
+        """Get SQL KEY as string"""
         return ",".join(f"{n}{' DESC' if i < 0 else ''}" for n, i in self._cols)
 
-    def as_dict(self):
+    def as_dict(self) -> dict:
+        """Convert content to a dictionary"""
         return {
             "name": self.name,
             "is_unique": self.is_unique,
@@ -126,14 +135,17 @@ class IndexInfo(object):
 class TableInfo(object):
     """Stores meta data for a (MySql) table
 
-    Arguments:
-        name (str): Name of this table
-        columns (iterable): Iterable containing one :class:`fsgop.db.ColumnInfo`
-            object per column in this table.
-        indices (iterable): Iterable containing one :class:`IndexInfo` object
-           per index for this table.
+    Args:
+        name: Name of this table
+        columns: Iterable containing one :class:`fsgop.db.ColumnInfo` object per
+            column in this table.
+        indices: Iterable containing one :class:`IndexInfo` object per index for
+            this table.
     """
-    def __init__(self, name=None, columns=None, indices=None):
+    def __init__(self,
+                 name: Optional[str] = None,
+                 columns: Optional[Iterable[ColumnInfo]] = None,
+                 indices: Optional[Iterable[IndexInfo]] = None) -> None:
         self.name = name
         self._cols = []
         self._indices = dict()
@@ -146,41 +158,42 @@ class TableInfo(object):
             for idx in indices:
                 self.add_index(idx)
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[ColumnInfo, None, None]:
         """Iterate over the columns of this table
 
         Yields:
-            :class:`ColumnInfo`: column information
+            Column information
         """
         yield from self._cols
 
     @property
-    def ncols(self):
+    def ncols(self) -> int:
         """Get number of columns in this table
 
         Return:
-            int: Number of columns in this table
+            Number of columns in this table
         """
         return len(self._cols)
 
     @property
-    def nidx(self):
+    def nidx(self) -> int:
+        """Get number of indices for this table"""
         return len(self._indices)
 
     @property
-    def columns(self):
+    def columns(self) -> Tuple[Optional[str]]:
         """Get names of all columns in this table
 
-        Return:
-            tuple: Name of each column in this table
+        Returns:
+            Name of each column in this table
         """
         return tuple(c.name for c in self._cols)
 
     @property
-    def index_names(self):
+    def index_names(self) -> set:
         return set(self._indices.keys())
 
-    def indices(self):
+    def indices(self) -> Generator[IndexInfo, None, None]:
         """Iterate over all indices of this table
 
         Yields:
@@ -189,39 +202,38 @@ class TableInfo(object):
         """
         yield from self._indices.items()
 
-    def add_column(self, col):
+    def add_column(self, col: ColumnInfo) -> None:
         """Insert a column into the table
         
-        Arguments:
-            col (:class:`fsgop.db.ColumnInfo`): Column to insert
+        Args:
+            col: Column information to insert
         """
         self._cols.append(col)
 
-    def add_index(self, idx):
+    def add_index(self, idx: IndexInfo) -> None:
         """Add an index for this table
 
-        Arguments:
-            idx (:class:`fsgop.db.IndexInfo`): Index to insert
+        Args:
+            idx: Index information to insert
         """
         self._indices[idx.name] = idx
 
-    def format(self, placeholder="%s"):
+    def format(self, placeholder: str = "%s") -> str:
         """Returns a tuple to be passed to INSERT INTO VALUES command.
 
-        Arguments:
-            placeholder (str): Placeholder used for values to insert. Defaults
-               to ``'%s'``.
+        Args:
+            placeholder: Placeholder used for values. Defaults to ``'%s'``.
 
-        Return:
-            str: format string
+        Returns:
+            format string
         """
         return f"({','.join(self.ncols * [placeholder])})"
 
-    def primary_key(self):
+    def primary_key(self) -> str:
         """Get primary key statement
 
         Return:
-            str: Format string for the first key marked as primary, empty string
+            Format string for the first key marked as primary, empty string
             if no primary key is defined
         """
         for name, idx in self.indices():
@@ -229,15 +241,14 @@ class TableInfo(object):
                 return f"PRIMARY KEY ({idx.key_format()})"
         return ""
 
-    def get_column(self, name):
+    def get_column(self, name: str) -> ColumnInfo:
         """Get column with a given name
         
-        Arguments:
-            name(string): Column name to search for
+        Args:
+            name: Column name
         
-        Return:
-            pysk.SqlColumn instance with the given name. Raises a KeyError if no
-            such column exists
+        Returns:
+            Column information
 
         Raise:
             KeyError: If no column with the given `name` exists.
@@ -247,58 +258,60 @@ class TableInfo(object):
                 return col
         raise KeyError(f"No such column: '{name}'")
 
-    def record_type(self, name=None, aliases=None):
+    def record_type(self,
+                    name: Optional[str] = None,
+                    aliases: Optional[dict] = None) -> namedtuple:
         """Create a named tuple for this table
 
-        Arguments:
-            name (str): Name of the returned namedtuple type
-            aliases (dict): Dictionary containing an alias as value for each
-               column name (key) in this table. Column names not in aliases will
-               be used unmodified.
+        Args:
+            name: Name of the returned namedtuple type
+            aliases: Dictionary containing an alias as value for each column name
+               (key) in this table. Column names not in aliases are not modified.
         """
         _alias = aliases if aliases is not None else dict()
         _name = name if name is not None else f"{self.name.capitalize()}Record"
         return namedtuple(_name, [_alias.get(k, k) for k in self.columns])
 
-    def record_parser(self, get_parser):
+    def record_parser(self, get_parser: Callable) -> Tuple[Callable]:
         """Create a parser for this table
 
-        Arguments:
-            get_parser (callable): Function returning a parser function for a
-               column given the dtype string of the column as input
+        Args:
+            get_parser: Function returning a parser function for a column given
+               the dtype string of the column as input
                (e.g. :meth:`fsgop.db.Database.get_parser`)
 
-        Return:
-            tuple: One callable per column in this table, which converts strings
-            to the appropriate data types of the column.
+        Returns:
+            One callable per column in this table, which converts strings to the
+            appropriate data types of the column.
         """
         return tuple(get_parser(col.dtype) for col in self._cols)
 
-    def as_dict(self):
+    def as_dict(self) -> dict:
         """Convert table information into a dictionary
 
         Returns:
-            dict: Dictionary containing columns and indices of this table.
+            Dictionary containing columns and indices of this table.
             The output can be imported using ``TableInfo.from_list(**output)``
         """
         return {"columns": [dict(vars(col).items()) for col in self._cols],
                 "indices": [i.as_dict() for i in sorted(self._indices.values())]}
 
     @classmethod
-    def from_list(cls, name, columns, indices=None):
+    def from_list(cls,
+                  name: str,
+                  columns: Iterable[dict],
+                  indices: Optional[Iterable[dict]] = None) -> "TableInfo":
         """Create a new TableInfo instance from a list of columns and indices
 
-        Arguments:
-            name (str): Table name
-            columns (iterable): Iterable of dictionaries, where each dictionary
-               can be forwarded as keyword arguments to the ColumInfo
-               constructor.
-            indices (iterable): Iterable of dictionaries, where each dictionary
-               can be forwarded as keyword arguments to the IndexInfo
-               constructor.
+        Args:
+            name: Table name
+            columns: Iterable of dictionaries, where each dictionary can be
+                forwarded as keyword arguments to the ColumInfo constructor.
+            indices: Iterable of dictionaries, where each dictionary can be
+                forwarded as keyword arguments to the IndexInfo constructor.
 
-        Return:
-            TableInfo: Table information
+        Returns:
+            Table information
         """
         table = cls(name=name)
         for col in columns:
