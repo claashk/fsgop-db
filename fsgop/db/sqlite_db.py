@@ -1,44 +1,48 @@
+from typing import Optional, List
 import sqlite3
 from .database import Database
 from .table_info import TableInfo, ColumnInfo, IndexInfo
 
 
 class SqliteDatabase(Database):
-    """MySql Database implementation
+    """Sqlite database implementation
 
-    Arguments:
-        host (str): Hostname. Defaults to '*localhost*'
-        user (str): MySQL username. Defaults to '*startkladde*'.
-        password (str): Password for user. Defaults to ``None``.
-        database (str): Name of Database to open. Defaults to '*startkladde*'.        
+    Args:
+        database: Name of Database to open.
+        schema: Schema in dictionary form.
     """
-    def __init__(self, database=None, schema=None, **kwargs):
+    def __init__(self,
+                 database: Optional[str] = None,
+                 schema: Optional[dict] = None,
+                 **kwargs) -> None:
         super().__init__(database=database, schema=schema, **kwargs)
 
-    def connect(self, database, schema=None, **kwargs):
-        """Connect to MySQL server
+    def connect(self,
+                database: Optional[str] = None,
+                schema: Optional[dict] = None,
+                **kwargs) -> None:
+        """Connect to sqlite database
         
-        Arguments:
-            host (str): Hostname. Defaults to '*localhost*'.
-            user (str): MySQL username. Defaults to '*startkladde*'.
-            password (str): Password for user. Defaults to ``None``.
-            database (str): Name of Database to open. Defaults to '*startkladde*'.
+        Args:
+            database: Name of Database to open.
+            schema: Schema to use.
+            **kwargs: Keyword arguments passed verbatim to ``sqlite3.connect``
         """
         self._db = sqlite3.connect(database, **kwargs)
         self._cursor = self._db.cursor()
         self._cursor.execute("PRAGMA foreign_keys = ON")
         self.schema = self.get_schema() if schema is None else dict(schema)
 
-    def list_tables(self):
+    def list_tables(self) -> List[str]:
         """Get list of table names
                     
-        Return:
-            list: List of strings containing the table names
+        Returns:
+            List of strings containing the table names
         """
         self._cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         return [t[0] for t in self._cursor.fetchall()]
 
-    def get_index_info(self, name):
+    def get_index_info(self, name: str) -> List[IndexInfo]:
         indices = []
         self._cursor.execute(f"PRAGMA index_list({name})")
         for rec in self._cursor.fetchall():
@@ -55,7 +59,17 @@ class SqliteDatabase(Database):
                                sequence=rec[0])
         return indices
 
-    def get_references(self, table, column):
+    def get_references(self, table: str, column: str) -> Optional[str]:
+        """Get column referenced by a column in another table
+
+        Args:
+            table: Name of table containing referencing column
+            column: Name of referencing column
+
+        Returns:
+            table name and column name referenced by the specified column.
+            ``None`` if specified column does not refer to any other column.
+        """
         self._cursor.execute(f"PRAGMA foreign_key_list('{table}')")
 
         ref = [(r[2], r[4]) for r in self._cursor.fetchall() if r[3] == column]
@@ -67,7 +81,15 @@ class SqliteDatabase(Database):
 
         return f"{ref[0][0]}({ref[0][1]})"
 
-    def get_table_info(self, name):
+    def get_table_info(self, name: str) -> TableInfo:
+        """Get information about a table in this database
+
+        Args:
+            name: Table name
+
+        Returns:
+            TableInfo object
+        """
         table = TableInfo(name=name, indices=self.get_index_info(name))
         self._cursor.execute(f"PRAGMA table_info('{name}')")
         for rec in self._cursor.fetchall():
@@ -77,8 +99,7 @@ class SqliteDatabase(Database):
                 dtype=rec[2],
                 allows_null=(int(rec[3]) == 0),
                 default_value=None if default_value.upper() == "NULL"
-                                   else default_value))
+                              else default_value))
         for col in table:
             col.references = self.get_references(table.name, col.name)
-
         return table
