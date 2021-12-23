@@ -31,10 +31,10 @@ def to(cls, obj, **kwargs):
     Arguments:
         cls (type or callable): Class of instance to create, e.g. ``str``
         obj (object): Object containing source information. If this is an
-            instance of class `cls`, then it is returned. If this is an
-            :class:`~xml.etree.ElementTree.Element`, then :func:`from_element`
-            is invoked to convert it with `method` as single argument. If `obj`
-            is ``None`` and `mandatory` is False, then ``None`` is returned.
+            instance of class `cls`, then it is returned. If this is a
+            :class:`collections.namedtuple`, then it will be forwared as keyword
+             arguments to the constructor of cls. If `obj` is ``None`` and
+             `default` is provided, then `default` is returned.
         default: Default value.
 
     Return:
@@ -43,11 +43,19 @@ def to(cls, obj, **kwargs):
     try:
         if isinstance(obj, cls):
             return obj
+        if isinstance(obj, str):
+            return from_str(obj, cls)
     except TypeError:
         # cls is not a class -> assume it is callable
-        return cls(obj)
-    if isinstance(obj, str):
-        return from_str(obj, cls)
+        pass
+    if isinstance(obj, dict):
+        return cls(**obj)
+    if isinstance(obj, tuple):
+        try:
+            # works for named tuples only
+            return cls(**obj._asdict())
+        except AttributeError:
+            return cls(*obj)
     if obj is None:
         try:
             return kwargs['default']
