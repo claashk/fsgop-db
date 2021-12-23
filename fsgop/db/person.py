@@ -129,8 +129,8 @@ class Person(Record):
         return super().index_tuple()
 
 
-class PersonProperties(Property):
-    """Person properties
+class PersonProperty(Property):
+    """Person property implementation
 
     Arguments:
         uid: Unique ID of this property record
@@ -140,7 +140,7 @@ class PersonProperties(Property):
            valid since the dawn of time
         valid_until: Date after which this property expires. Use ``None`` to
            indicate that the property does not expire
-        key: Key describing this property
+        name: Name of this property
         value: Property value
     """
     def __init__(self,
@@ -148,13 +148,12 @@ class PersonProperties(Property):
                  person: Optional[Union[Person, int]] = None,
                  valid_from: Optional[datetime] = None,
                  valid_until: Optional[datetime] = None,
-                 key: Optional[str] = None,
+                 name: Optional[str] = None,
                  value: Optional[str] = None) -> None:
-        super().__init__(self,
-                         uid=uid,
-                         rec=to(Person, person),
+        super().__init__(uid=uid,
+                         rec=to(Person, person, default=None),
                          valid_from=valid_from,
                          valid_until=valid_until,
-                         key=key,
+                         name=name,
                          value=value)
 

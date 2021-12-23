@@ -1,6 +1,7 @@
 from typing import Union, Optional, Type, Iterable
 from collections import namedtuple
 from .utils import to
+from .database import Database
 
 
 class Record(object):
@@ -13,6 +14,7 @@ class Record(object):
 
     def __init__(self, uid: Optional[int] = None):
         self.uid = to(int, uid, default=None)
+        self._properties = dict()
 
     def __str__(self) -> str:
         """Convert this to string consisting of index fields
@@ -29,6 +31,17 @@ class Record(object):
 
     def __bool__(self):
         return self.key() is not None
+
+    def __getitem__(self, name: str) -> set:
+        """Get set of properties for a given name
+
+        Args:
+            name: Name of the property
+
+        Returns:
+            Set of properties with the given name
+        """
+        return self._properties.setdefault(name, set())
 
     def __repr__(self) -> str:
         return f"{type(self).__name__} ({str(self)})"
@@ -104,6 +117,28 @@ class Record(object):
             return t._make(self.format(x) for x in t._fields)
         return t._make(getattr(self, x) for x in t._fields)
 
+    def search_in(self, db: Database, table: str) -> namedtuple:
+        """Search this record in the database
+
+        If this record has a uid, then the lookup will be by uid. If no uid
+        is specified, the record will be completed by the index.
+
+        Args:
+            db: Database to search
+            table: Name of table to search
+
+        Returns:
+            Matching database record.
+
+        Raises:
+            KeyError if no unique matching record is found
+        """
+        if self.uid is not None:
+            return db.unique_id(table, self.uid)
+        kwargs = {k: getattr(self, k) for k in self.index}
+        _where = " and ".join(f"{k}={db.var(k)}" for k in kwargs.keys())
+        return db.unique(table, where=_where, **kwargs)
+
     def format(self, name: str) -> str:
         """Convert an attribute to a string
 
@@ -126,7 +161,7 @@ class Record(object):
         Returns:
             Names of all fields in this record
         """
-        return set(vars(cls()).keys())
+        return {k for k in vars(cls()).keys() if not k.startswith('_')}
 
     @classmethod
     def nested_records(cls) -> set:
@@ -175,25 +210,30 @@ class Record(object):
         Raises:
             KeyError: If one of the attributes in attrs is not found in d
         """
-        _attrs = set(cls.index) if attrs is None else set(attrs)
-        return cls(**{key: d[f"{prefix}{key}"] for key in _attrs})
+        _attrs = cls.index if attrs is None else attrs
+        return cls(**{key: d.get(f"{prefix}{key}") for key in _attrs})
 
     @classmethod
     def from_obj(cls,
                  obj: object,
                  attrs: Optional[Iterable[str]] = None,
-                 prefix: str = "") -> "Record":
+                 prefix: str = "",
+                 **kwargs) -> "Record":
         """Create record from named tuple
 
-        Arguments:
+        Args:
             obj: Object instance. Attributes must be identical to
                 the attributes passed in attrs.
-            attrs (iterable or None): Attributes to select from t. If ``None``,
-                 cls.index is used.
-            prefix (str): Prefix appended to each attribute. Defaults to ``""``.
+            attrs: Attributes to select from `obj`. If ``None``, cls.index is
+               used.
+            prefix: Prefix appended to each attribute. Defaults to ``""``.
+            **kwargs: Additional keyword arguments. In the base version these
+                are passed verbatim to ``cls``.
 
         Returns:
             Record instance
         """
-        _attrs = set(cls.index) if attrs is None else set(attrs)
-        return cls(**{key: getattr(obj, f"{prefix}{key}") for key in _attrs})
+        # TODO Check if this is really required. Maybe from_dict is sufficient
+        _attrs = cls.index if attrs is None else attrs
+        kwargs.update({k: getattr(obj, f"{prefix}{k}", None) for k in _attrs})
+        return cls(**kwargs)

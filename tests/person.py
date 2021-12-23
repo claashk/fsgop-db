@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 import unittest
-from fsgop.db import Person
+from fsgop.db import Person, PersonProperty
 from fsgop.db.utils import to
 import fsgop.db.person
 from fsgop.db.person import split_title, split_count
 
-from datetime import date
+from datetime import date, datetime
 from collections import namedtuple
 
 
@@ -191,6 +191,47 @@ class PersonTestCase(unittest.TestCase):
         p = to(Person, 5)
         self.assertEqual(5, p.uid)
         self.assertEqual(5, int(p))
+
+    def test_properties(self):
+        person = Person(first_name="Otto", last_name="Lilienthal")
+        spl = PersonProperty(name="Licences", value="SPL 123456")
+        ppl = PersonProperty(name="Licences", value="PPL 321645")
+        m1 = PersonProperty(name="Membership",
+                            value="Club1 (regular)",
+                            valid_from=datetime(1900, 5, 1),
+                            valid_until=datetime(1930, 1, 1))
+        m2 = PersonProperty(name="Membership",
+                            value="Club1 (honorary)",
+                            valid_from=datetime(1930, 1, 1))
+        spl.add_to(person)
+        ppl.add_to(person)
+        ppl.add_to(person)
+        m1.add_to(person)
+        m1.add_to(person)
+        m2.add_to(person)
+
+        self.assertEqual(2, len(person["Licences"]))
+        for p in person["Licenses"]:
+            self.assertIsInstance(p, PersonProperty)
+            self.assertIs(p.rec, person)
+
+        self.assertEqual(2, len(person["Membership"]))
+        p = PersonProperty.get_from(person,
+                                    "Membership",
+                                    at=datetime(1905, 5, 4))
+        self.assertIs(p.rec, person)
+        self.assertEqual("Club1 (regular)", p.value)
+
+        p = PersonProperty.get_from(person,
+                                    "Membership",
+                                    at=datetime(1930, 1, 1))
+        self.assertIs(p.rec, person)
+        self.assertEqual("Club1 (honorary)", p.value)
+
+        person["Membership"].discard(p)
+        self.assertEqual(1, len(person["Membership"]))
+
+
 
 
 def suite():
