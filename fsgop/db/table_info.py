@@ -273,6 +273,24 @@ class TableInfo(object):
                 return col
         raise KeyError(f"No such column: '{name}'")
 
+    def create_record_type(self,
+                           name: Optional[str] = None,
+                           aliases: Optional[dict] = None) -> Type[namedtuple]:
+        """Reset the internal record type to a named tuple for this table
+
+        Args:
+            name: Name of the returned namedtuple type. Defaults to
+                ``'<name>Record'`` where <name> is the table name.
+            aliases: Dictionary containing an alias as value for each column name
+               (key) in this table. Column names not in aliases are not modified.
+
+        Returns:
+            named tuple type for records of this table
+        """
+        _alias = aliases if aliases is not None else dict()
+        _name = name if name is not None else f"{self.name.capitalize()}Record"
+        return namedtuple(_name, [_alias.get(k, k) for k in self.columns])
+
     def reset_record_type(self,
                           name: Optional[str] = None,
                           aliases: Optional[dict] = None) -> None:
@@ -284,10 +302,7 @@ class TableInfo(object):
             aliases: Dictionary containing an alias as value for each column name
                (key) in this table. Column names not in aliases are not modified.
         """
-        _alias = aliases if aliases is not None else dict()
-        _name = name if name is not None else f"{self.name.capitalize()}Record"
-        self._record_type = namedtuple(_name,
-                                       [_alias.get(k, k) for k in self.columns])
+        self._record_type = self.create_record_type(name, aliases)
 
     def record_parser(self, get_parser: Callable) -> Tuple[Callable]:
         """Create a parser for this table

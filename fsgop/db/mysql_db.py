@@ -141,13 +141,12 @@ class MysqlDatabase(Database):
             One namedtuple per record of the input file
         """
         if table is None:
-            table = path.stem
+            table = Path(path).stem
         if reader is None:
             reader = CsvParser()
         table_info = self.schema[table]
-        if aliases is not None:
-            table_info.reset_record_type(aliases=aliases)
+        Rec = table_info.create_record_type(aliases=aliases)
         parsers = table_info.record_parser(self.get_parser)
 
         for rec in reader(str(path), skip_rows=0, delimiter="\t"):
-            yield table_info.record_type(*(p(x) for p, x in zip(parsers, rec)))
+            yield Rec(*(p(x) for p, x in zip(parsers, rec)))
