@@ -159,9 +159,9 @@ class Database(object):
         order_str = f" ORDER BY {order}" if order else ""
         self._cursor.execute(f"SELECT * FROM {table.name}{where_str}{order_str}",
                              kwargs)
-        Rec = table.record_type("Rec") if rectype is None else rectype
+        _type = table.record_type if rectype is None else rectype
         for row in self._cursor:
-            yield Rec(*row)
+            yield _type(*row)
 
     def insert(self,
                name: str,

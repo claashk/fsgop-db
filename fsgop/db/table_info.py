@@ -1,4 +1,4 @@
-from typing import Optional, Iterable, Generator, Tuple, Callable
+from typing import Optional, Iterable, Generator, Tuple, Callable, NamedTuple
 from collections import namedtuple
 
 
@@ -149,6 +149,7 @@ class TableInfo(object):
         self.name = name
         self._cols = []
         self._indices = dict()
+        self._record_type = None
         
         if columns is not None:
             for col in columns:
@@ -193,6 +194,18 @@ class TableInfo(object):
     def index_names(self) -> set:
         return set(self._indices.keys())
 
+    @property
+    def record_type(self) -> NamedTuple:
+        """Get native record type
+
+        Returns:
+            namedtuple: Named tuple instance with one field per column in this
+            table.
+        """
+        if self._record_type is None:
+            self.reset_record_type()
+        return self._record_type
+
     def indices(self) -> Generator[IndexInfo, None, None]:
         """Iterate over all indices of this table
 
@@ -209,6 +222,7 @@ class TableInfo(object):
             col: Column information to insert
         """
         self._cols.append(col)
+        self._record_type = None
 
     def add_index(self, idx: IndexInfo) -> None:
         """Add an index for this table
@@ -258,19 +272,21 @@ class TableInfo(object):
                 return col
         raise KeyError(f"No such column: '{name}'")
 
-    def record_type(self,
-                    name: Optional[str] = None,
-                    aliases: Optional[dict] = None) -> namedtuple:
-        """Create a named tuple for this table
+    def reset_record_type(self,
+                          name: Optional[str] = None,
+                          aliases: Optional[dict] = None) -> None:
+        """Reset the internal record type to a named tuple for this table
 
         Args:
-            name: Name of the returned namedtuple type
+            name: Name of the returned namedtuple type. Defaults to
+                ``'<name>Record'`` where <name> is the table name.
             aliases: Dictionary containing an alias as value for each column name
                (key) in this table. Column names not in aliases are not modified.
         """
         _alias = aliases if aliases is not None else dict()
         _name = name if name is not None else f"{self.name.capitalize()}Record"
-        return namedtuple(_name, [_alias.get(k, k) for k in self.columns])
+        self._record_type = namedtuple(_name,
+                                       [_alias.get(k, k) for k in self.columns])
 
     def record_parser(self, get_parser: Callable) -> Tuple[Callable]:
         """Create a parser for this table
