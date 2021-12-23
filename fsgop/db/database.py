@@ -1,4 +1,4 @@
-from typing import Optional, Generator, Iterable, Callable, NamedTuple
+from typing import Optional, Generator, Iterable, Callable, NamedTuple, Any
 from datetime import datetime
 from .table_info import TableInfo
 from .table_info import IndexInfo
@@ -17,6 +17,8 @@ class Database(object):
     time_format = "%H:%M"
     datetime_format = f"{date_format} {time_format}"
     placeholder = "?"
+    placeholder_prefix = ":"
+    placeholder_postfix = ""
 
     def __init__(self,
                  database: Optional[str] = None,
@@ -130,6 +132,7 @@ class Database(object):
                name: str,
                where: Optional[str] = None,
                order: Optional[str] = None,
+               rectype: Optional[Any] = None,
                **kwargs) -> Generator[NamedTuple, None, None]:
         """Iterate over the rows of a given table                
         
@@ -142,6 +145,9 @@ class Database(object):
                 arguments to avoid SQL injection.
             order: Optional order key. Passed verbatim to *SQL* `ORDER BY`
                 statement. Defaults to ``None``.
+            rectype: Type returned by this class. Must be constructible
+                from the columns in this class. If not specified, a namedtuple
+                will be constructed from the table info.
             **kwargs: Variables to be inserted into the `where` and `order`
                 strings in a safe manner.
             
@@ -153,9 +159,9 @@ class Database(object):
         order_str = f" ORDER BY {order}" if order else ""
         self._cursor.execute(f"SELECT * FROM {table.name}{where_str}{order_str}",
                              kwargs)
-        RecordType = table.record_type("RecordType")
+        Rec = table.record_type("Rec") if rectype is None else rectype
         for row in self._cursor:
-            yield RecordType(*row)
+            yield Rec(*row)
 
     def insert(self,
                name: str,
@@ -241,7 +247,8 @@ class Database(object):
         Args:
             name: Table name
             where: Filter criteria
-            **kwargs: Variables to be inserted into where string.
+            **kwargs: Keyword arguments passed verbatim to
+                :meth:`Database.select`.
 
         Return:
             Record matching query, if and only if the query returns exactly one
@@ -252,10 +259,9 @@ class Database(object):
         """        
         retval = None
         for result in self.select(name, where=where, **kwargs):
-            if retval is None:
-                retval = result
-            else:
-                raise KeyError(f"Found more than one result matching '{where}'")
+            if retval is not None:
+                raise KeyError(f"Found more than one record matching '{where}'")
+            retval = result
 
         if retval is None:
             raise KeyError(f"Found no result matching '{where}'")
@@ -298,3 +304,15 @@ class Database(object):
             return (lambda x: datetime.strptime(x, self.datetime_format)
                     if x != r"\N" else None)
         return lambda x: str(x) if x != r"\N" else None
+
+    @classmethod
+    def var(cls, name: str) -> str:
+        """Get variable as named placeholder
+
+        Args:
+            name: Variable name
+
+        Return:
+            Properly escaped string to use `name` as variable in database query
+        """
+        return f"{cls.placeholder_prefix}{name}{cls.placeholder_postfix}"

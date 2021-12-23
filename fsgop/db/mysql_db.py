@@ -16,6 +16,8 @@ class MysqlDatabase(Database):
             :meth:`MysqlDatabase.connect`
     """
     placeholder = "%s"
+    placeholder_prefix = "%("
+    placeholder_postfix = ")"
 
     def __init__(self,
                  database: Optional[str] = None,
@@ -109,7 +111,7 @@ class MysqlDatabase(Database):
             idx = indices.setdefault(
                 rec[2],
                 IndexInfo(name=rec[2],
-                          is_unique=(int(rec[1] == 0)),
+                          is_unique=(int(rec[1]) == 0),
                           is_primary=(rec[2].upper()) == "PRIMARY"))
             idx.add_column(name=rec[4],
                            order=order[rec[5]],
