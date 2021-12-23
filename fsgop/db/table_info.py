@@ -1,4 +1,5 @@
 from typing import Optional, Iterable, Generator, Tuple, Callable, NamedTuple
+from typing import Type
 from collections import namedtuple
 
 
@@ -195,7 +196,7 @@ class TableInfo(object):
         return set(self._indices.keys())
 
     @property
-    def record_type(self) -> NamedTuple:
+    def record_type(self) -> Type[NamedTuple]:
         """Get native record type
 
         Returns:

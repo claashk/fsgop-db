@@ -145,8 +145,9 @@ class MysqlDatabase(Database):
         if reader is None:
             reader = CsvParser()
         table_info = self.schema[table]
-        reader.row_type = table_info.record_type(aliases=aliases)
+        if aliases is not None:
+            table_info.reset_record_type(aliases=aliases)
         parsers = table_info.record_parser(self.get_parser)
 
         for rec in reader(str(path), skip_rows=0, delimiter="\t"):
-            yield reader.row_type(*tuple(p(x) for p, x in zip(parsers, rec)))
+            yield table_info.record_type(*(p(x) for p, x in zip(parsers, rec)))

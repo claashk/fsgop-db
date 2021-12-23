@@ -64,13 +64,13 @@ class TableInfoTestCase(unittest.TestCase):
     def test_tuple_conversion(self):
         t = TableInfo(name="Table", columns=self.get_columns())
         aliases = dict(col1="first", col3="third")
-        TableRecord = t.record_type(aliases=aliases)
+        t.reset_record_type(aliases=aliases)
 
         d1 = dict(first=1,
                   third=datetime(2012, 1, 23, 14, 15, 16),
                   col2=2.1)
 
-        rec = TableRecord(**d1)
+        rec = t.record_type(**d1)
         self.assertTupleEqual((1, 2.1, datetime(2012, 1, 23, 14, 15, 16)),
                               rec)
 
