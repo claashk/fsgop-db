@@ -1,6 +1,7 @@
-import re
+from typing import Optional, Union, Type, Iterable, Tuple
 from datetime import date, datetime
-from typing import Optional, Tuple, Union
+import re
+from collections import namedtuple
 
 from .record import Record, to
 from .property import Property
@@ -157,3 +158,105 @@ class PersonProperty(Property):
                          name=name,
                          value=value)
 
+
+class NameAdapter(object):
+    """Replaces fields containing the name by firstname and lastname fields
+
+    Args:
+        rectype: Type of the input tuple.
+    """
+    def __init__(self, rectype: Type[namedtuple]) -> None:
+        self._copy = []
+        self._add = []
+        self._rectype = rectype
+        add = []
+        for key in rectype._fields:
+            if not key.endswith("name"):
+                copy, prefix = True, None
+            elif key.endswith("first_name"):
+                prefix = key[:-10]
+                copy = f"{prefix}last_name" in rectype._fields
+            elif key.endswith("last_name"):
+                prefix = key[:-9]
+                copy = f"{prefix}first_name" in rectype._fields
+            else:
+                copy, prefix = False, key[:-4]
+
+            if copy:
+                self._copy.append(key)
+            else:
+                names = [f"{prefix}{s}" for s in ("first_name", "last_name")]
+                if not all(s in rectype._fields or s in add for s in names):
+                    add.extend(names)
+        if add:
+            self._rectype = namedtuple(f"Modified{rectype.__name__}",
+                                       self._copy + add)
+            self._add = [f"{s[:-10]}name" for s in add[::2]]  # first names only
+
+    def __call__(self, t: namedtuple) -> namedtuple:
+        """Convert input tuple to output tuple
+
+        Args:
+            t: Input tuple containing one or more combined name fields
+
+        Returns:
+            named tuple with combined fields replaced by first name and last name
+            fields.
+        """
+        return self._rectype._make(self.iter_args(t))
+
+    def __bool__(self) -> bool:
+        """Check if any fields are added by this functor
+
+        Returns:
+            ``True`` if and only if this functor does anything useful
+
+        """
+        return bool(self._add)
+
+    @property
+    def record_type(self) -> Type[namedtuple]:
+        """Get record type returned by this functor"""
+        return self._rectype
+
+    def iter_args(self, t: namedtuple) -> Iterable:
+        """Iterate over arguments of output tuple
+
+        Args:
+            t: input tuple
+
+        Yields:
+            Arguments of the output tuple
+        """
+        for f in self._copy:
+            yield getattr(t, f)
+
+        for f in self._add:
+            n = getattr(t, f).split(",", maxsplit=1) + [""]
+            last_name, first_name = n[:2]
+            yield first_name.strip()
+            yield last_name.strip()
+
+    @classmethod
+    def apply(cls,
+              records: Iterable[namedtuple],
+              rectype: Optional[Type[namedtuple]] = None
+    ) -> Tuple[Iterable[namedtuple], Type[namedtuple]]:
+        """Apply name adapter to sequence if required
+
+        Args:
+            records: Iterable of input tuples
+            rectype: Type of input records
+
+        Returns:
+            tuple containing a generator of output tuples and the type of the
+            output tuples.
+        """
+        if rectype is None:
+            if not records:
+                return records, None
+            rectype = type(records[0])
+        f = cls(rectype)
+        if f:
+            return map(f, records), f.record_type
+        return records, rectype

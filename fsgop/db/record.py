@@ -1,5 +1,6 @@
 from typing import Union, Optional, Type, Iterable
 from collections import namedtuple
+from inspect import signature
 from .utils import to
 from .database import Database
 
@@ -155,85 +156,20 @@ class Record(object):
         return to(str, getattr(self, name), default="")
 
     @classmethod
-    def fields(cls) -> set:
-        """Get all attributes/fields of this record type
+    def layout(cls, prefix: str = "", allow: Iterable[str] = None) -> dict:
+        """Get layout of this class
 
-        Returns:
-            Names of all fields in this record
-        """
-        return {k for k in vars(cls()).keys() if not k.startswith('_')}
-
-    @classmethod
-    def nested_records(cls) -> set:
-        """Get all attributes/fields of this record, which are also records
-
-        Returns:
-            Names of all fields in this record, which are also records
-        """
-        return {k for k, v in vars(cls()).items() if isinstance(v, Record)}
-
-    @classmethod
-    def fields_in(cls, names: Iterable[str], index_only: bool = False) -> set:
-        """Get names of fields matching this record
-
-        The output of this method can be used as input to :meth:`from_dict` and
-        :meth:`from_obj`.
-
+        This default implementation works for non-nested classes only.
         Args:
-            names: List of field names
-            index_only (bool): If True, only matching fields from the index
-               are returned
-
-        Return:
-            Names of recognised fields in *names*
-        """
-        if index_only:
-            return (set(cls.index) - cls.nested_records()) & set(names)
-        return (cls.fields() - cls.nested_records()) & set(names)
-
-    @classmethod
-    def from_dict(cls,
-                  d: dict,
-                  attrs: Optional[Iterable[str]] = None,
-                  prefix: str = "") -> "Record":
-        """Create record from dictionary
-
-        Args:
-            d: Dictionary containing attributes. Keys must match name of
-              arguments passed to constructor
-            attrs: Attributes to select from d. If ``None``, cls.index is used.
-            prefix: Prefix appended to each attribute. Defaults to ``""``.
+             prefix: Prefix to add to all keys. Defaults to None
+             allow: Iterable of allowed values. If not ``None``, only names in
+                 this dictionary are included in the output. If a prefix is
+                 provided, then values must include the prefix.
 
         Returns:
-            Record instance
-
-        Raises:
-            KeyError: If one of the attributes in attrs is not found in d
+            Layout dictionary.
         """
-        _attrs = cls.index if attrs is None else attrs
-        return cls(**{key: d.get(f"{prefix}{key}") for key in _attrs})
-
-    @classmethod
-    def from_obj(cls,
-                 obj: object,
-                 attrs: Optional[Iterable[str]] = None,
-                 prefix: str = "",
-                 **kwargs) -> "Record":
-        """Create record from named tuple
-
-        Args:
-            obj: Object instance. Attributes must be identical to
-                the attributes passed in attrs.
-            attrs: Attributes to select from `obj`. If ``None``, cls.index is
-               used.
-            prefix: Prefix appended to each attribute. Defaults to ``""``.
-            **kwargs: Additional keyword arguments. In the base version these
-                are passed verbatim to ``cls``.
-
-        Returns:
-            Record instance
-        """
-        # TODO Check if this is really required. Maybe from_dict is sufficient
-        _attrs = cls.index if attrs is None else attrs
-        kwargs.update({k: getattr(obj, f"{prefix}{k}", None) for k in _attrs})
-        return cls(**kwargs)
+        retval = {k: f"{prefix}{k}" for k in signature(cls).parameters.keys()}
+        if allow is not None:
+            retval = {k: v for k, v in retval.items() if v in allow}
+        return retval
