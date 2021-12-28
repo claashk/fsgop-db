@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
 import unittest
-* from fsgop.db import Person, PersonProperty, NameAdapter
+from fsgop.db import Person, PersonProperty, NameAdapter
 from fsgop.db.utils import to
-import fsgop.db.person
 from fsgop.db.person import split_title, split_count
 
 from datetime import date, datetime

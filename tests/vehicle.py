@@ -26,55 +26,18 @@ class VehicleTestCase(unittest.TestCase):
         self.assertEqual("G 103 123456", v1.serial_number)
         self.assertEqual(2, v1.num_seats)
 
-    def test_fields(self):
-        self.assertSetEqual({"uid",
-                             "manufacturer",
-                             "model",
-                             "comments",
-                             "num_seats",
-                             "serial_number",
-                             "category"},
-                            Vehicle.fields())
-
-        self.assertSetEqual(set(), Vehicle.nested_records())
-
-    def test_from_dict(self):
-        d = {"manufacturer": "Grob",
-             "model": "G 103B",
-             "club": "FSG Schwaben",
-             "category": 2,
-             "serial_number": "321"}
-        v = Vehicle.from_dict(d)
-        self.assertIsInstance(v, Vehicle)
-        self.assertEqual("Grob", v.manufacturer)
-        self.assertIsNone(v.model)
-        self.assertEqual("321", v.serial_number)
-        self.assertIsNone(v.category)
-
-        common_fields = Vehicle.fields_in(d.keys())
-        v = Vehicle.from_dict(d, common_fields)
-        self.assertIsInstance(v, Vehicle)
-        self.assertEqual("Grob", v.manufacturer)
-        self.assertEqual("G 103B", v.model)
-        self.assertEqual(2, v.category)
-        self.assertEqual("321", v.serial_number)
-
-    def test_from_namedtuple(self):
-        TupleType = namedtuple("TupleType",
-                               ["manufacturer", "model", "club", "serial_number"])
-        t = TupleType("Grob", "G103B", "A club", "321")
-        recognised_fields = Vehicle.fields_in(TupleType._fields)
-        v = Vehicle.from_obj(t, ["manufacturer", "model"])
-        self.assertIsInstance(v, Vehicle)
-        self.assertEqual("Grob", v.manufacturer)
-        self.assertEqual("G103B", v.model)
-        self.assertIsNone(v.serial_number)
-
-        v = Vehicle.from_obj(t, recognised_fields)
-        self.assertIsInstance(v, Vehicle)
-        self.assertEqual("Grob", v.manufacturer)
-        self.assertEqual("G103B", v.model)
-        self.assertEqual("321", v.serial_number)
+    def test_layout(self):
+        layout = {
+            "uid": "uid",
+            "manufacturer": "manufacturer",
+            "model": "model",
+            "comments": "comments",
+            "num_seats": "num_seats",
+            "registration": "registration",
+            "serial_number": "serial_number",
+            "category": "category"
+        }
+        self.assertDictEqual(layout, Vehicle.layout())
 
     def test_comparison(self):
         v1 = Vehicle(manufacturer="Grob", model="G103B", serial_number="AB321")

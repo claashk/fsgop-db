@@ -135,6 +135,7 @@ def find_key_value_pair(s, key):
     pattern = key if isinstance(key, Pattern) else get_key_value_pattern(key)
     return pattern.search(s)
 
+
 def get_value(s, key):
     """Gets field from comment.
 
@@ -177,3 +178,22 @@ def set_value(key, value, s=""):
         return "".join([s[0:match.start(2)], f"{value}", s[match.end(2):]])
     else:
         return "; ".join([s, f"{key}='{value}'"])
+
+
+def kwargs_from(obj: object, layout: dict) -> dict:
+    """Extract nested keyword arguments from object based on a given structure
+
+    Args:
+        obj: An object with flattened arguments
+        layout: Output structure. Keys in this dict will be keys in the
+            output dictionary. The associated value will either be extracted
+            using :func:`getattr` if the value is a string or by recursive
+            invocation of :func:`kwargs_from`.
+
+    Returns:
+         Possibly nested keyword arguments
+    """
+    return {
+        k: getattr(obj, v) if isinstance(v, str) else kwargs_from(obj, v)
+        for k, v in layout.items()
+    }

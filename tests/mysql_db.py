@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import unittest
 from pathlib import Path
 from datetime import date
@@ -7,6 +6,7 @@ from datetime import date
 from fsgop.db import TableInfo
 from fsgop.db.startkladde import schema_v3 as vz_schema
 from fsgop.db import MysqlDatabase, Person
+from fsgop.db.utils import kwargs_from
 
 TEST_DIR = Path(__file__).parent
 
@@ -27,10 +27,10 @@ class MysqlDatabaseTestCase(unittest.TestCase):
         self.assertEqual("FSG-HH", recs[1].club)
         self.assertEqual("Newton", recs[2].last_name)
 
-        attrs = Person.fields_in(type(recs[0])._fields)
+        layout = Person.layout(allow=type(recs[0])._fields)
         self.assertSetEqual({"first_name", "last_name", "birthday", "comments"},
-                            attrs)
-        persons = [Person.from_obj(rec, attrs=attrs) for rec in recs]
+                            set(layout.keys()))
+        persons = [Person(**kwargs_from(rec, layout=layout)) for rec in recs]
         self.assertEqual(3, len(persons))
         self.assertEqual("Otto", persons[0].first_name)
         self.assertEqual("Lilienthal", persons[0].last_name)
