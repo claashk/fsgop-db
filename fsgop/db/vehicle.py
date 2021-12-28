@@ -1,5 +1,7 @@
-from typing import Optional
+from typing import Optional, Union
+from datetime import datetime
 from .record import Record, to
+from .property import Property
 
 SINGLE_ENGINE_PISTON = 1
 ULTRA_LIGHT = 2
@@ -32,6 +34,7 @@ class Vehicle(Record):
                  serial_number: Optional[str] = None,
                  num_seats: Optional[int] = None,
                  category: Optional[int] = None,
+                 registration: Optional[Union["VehicleProperty", str]] = None,
                  comments: Optional[str] = None) -> None:
         super().__init__(uid=uid)
         self.manufacturer = to(str, manufacturer, default=None)
@@ -40,3 +43,41 @@ class Vehicle(Record):
         self.num_seats = to(int, num_seats, default=1)
         self.category = to(int, category, default=None)
         self.comments = to(str, comments, default=None)
+
+        if registration is not None:
+            if isinstance(registration, str):
+                reg = VehicleProperty(value=registration)
+            else:
+                reg = registration
+            reg.name = "registration"
+            reg.add_to(self)
+
+
+class VehicleProperty(Property):
+    """Vehicle property implementation
+
+    Arguments:
+        uid: Unique ID of this property record
+        vehicle: Vehicle this property describes. An integer is interpreted as
+            uid.
+        valid_from: Date from which on this property is valid. ``None`` if it is
+           valid since the dawn of time
+        valid_until: Date after which this property expires. Use ``None`` to
+           indicate that the property does not expire
+        name: Name of this property
+        value: Property value
+    """
+    def __init__(self,
+                 uid: Optional[int] = None,
+                 vehicle: Optional[Union[Vehicle, int]] = None,
+                 valid_from: Optional[datetime] = None,
+                 valid_until: Optional[datetime] = None,
+                 name: Optional[str] = None,
+                 value: Optional[str] = None) -> None:
+        super().__init__(uid=uid,
+                         rec=to(Vehicle, vehicle, default=None),
+                         valid_from=valid_from,
+                         valid_until=valid_until,
+                         name=name,
+                         value=value)
+
