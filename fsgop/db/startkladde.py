@@ -1,3 +1,5 @@
+from .table_info import TableInfo
+
 schema_v3 = {
     'flights': {
         'columns': [
@@ -462,3 +464,13 @@ schema_v3 = {
              'is_primary': True,
              'columns': [('version', 1)]}]}
 }
+
+
+def get_schema() -> dict:
+    """Get schema for startkladde database
+
+    Returns:
+        Dictionary containing table name as key and TableInfo as value for
+        each table of the Startkladde database
+    """
+    return {k: TableInfo.from_list(k, **v) for k, v in schema_v3.items()}
