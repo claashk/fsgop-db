@@ -1,6 +1,10 @@
-from typing import Optional, Iterable, Generator, Tuple, Callable, NamedTuple
+from typing import Optional, Iterable, Generator, Tuple, NamedTuple, Union
 from typing import Type
 from collections import namedtuple
+from datetime import datetime, date
+from pathlib import Path
+
+from .table_io import CsvParser
 
 
 class ColumnInfo(object):
@@ -14,20 +18,29 @@ class ColumnInfo(object):
         extra: Extra information, such as 'auto_increment'
         references: Name of a table, which is used to store information
             referenced in this column, e.g. "Person(uid)"
+        fmt: Format string for this column. Used by parser in some cases.
     """
+    default_date_format = "%Y-%m-%d"
+    default_time_format = "%H:%M"
+    default_datetime_format = "%Y-%m-%d %H:%M"
+
     def __init__(self,
                  name: Optional[str] = None,
                  dtype: Optional[str] = None,
                  allows_null: bool = False,
                  default_value: Optional[str] = None,
                  extra: str = "",
-                 references: Optional[str] = None) -> None:
+                 references: Optional[str] = None,
+                 fmt: Optional[str] = None) -> None:
         self.name = name
         self.dtype = dtype
         self.allows_null = allows_null
         self.default_value = default_value
         self.extra = extra
         self.references = references
+        self.fmt = str(fmt) if fmt is not None else None
+        self._parser = None
+        self._set_parser()
 
     def has_auto_increment(self) -> bool:
         """Check if column is incremented automatically
@@ -57,6 +70,95 @@ class ColumnInfo(object):
         if self.references:
             return f" REFERENCES {self.references}"
         return ""
+
+    @staticmethod
+    def _int_parser(s: str) -> Optional[int]:
+        """Default parser for integer values
+
+        Args:
+            s: Input string
+
+        Returns:
+            Integer
+        """
+        if s is None or s == r"\N":
+            return None
+        return int(s)
+
+    @staticmethod
+    def _float_parser(s: str) -> Optional[float]:
+        """Default parser for float values
+
+        Args:
+            s: Input string
+
+        Returns:
+            float
+        """
+        if s is None or s == r"\N":
+            return None
+        return float(s)
+
+    @staticmethod
+    def _str_parser(s: str) -> Optional[str]:
+        """Default parser for datetime strings
+
+        Args:
+            s: Input string
+
+        Returns:
+            string version of s
+        """
+        if s is None or s == r"\N":
+            return None
+        return str(s)
+
+    def _date_parser(self, s: str) -> Optional[date]:
+        """Default parser for date strings
+
+        Args:
+            s: Input string
+
+        Returns:
+            date instance
+        """
+        if s is None or s == r"\N":
+            return None
+        return datetime.strptime(s, self.fmt).date()
+
+    def _datetime_parser(self, s: str) -> Optional[date]:
+        """Default parser for date strings
+
+        Args:
+            s: Input string
+
+        Returns:
+            date instance
+        """
+        if s is None or s == r"\N":
+            return None
+        return datetime.strptime(s, self.fmt)
+
+    def _set_parser(self):
+        """Set parser for this column
+        """
+        if self.dtype is None:
+            return
+        s = self.dtype.lower()
+        if "int" in s:
+            self._parser = self._int_parser
+        elif "real" in s or "floa" in s or "doub" in s:
+            self._parser = self._float_parser
+        elif s == "date":
+            self._parser = self._date_parser
+            if self.fmt is None:
+                self.fmt = self.default_date_format
+        elif s == "datetime":
+            self._parser = self._datetime_parser
+            if self.fmt is None:
+                self.fmt = self.default_datetime_format
+        else:
+            self._parser = self._str_parser
 
 
 class IndexInfo(object):
@@ -304,20 +406,6 @@ class TableInfo(object):
         """
         self._record_type = self.create_record_type(name, aliases)
 
-    def record_parser(self, get_parser: Callable) -> Tuple[Callable]:
-        """Create a parser for this table
-
-        Args:
-            get_parser: Function returning a parser function for a column given
-               the dtype string of the column as input
-               (e.g. :meth:`fsgop.db.Database.get_parser`)
-
-        Returns:
-            One callable per column in this table, which converts strings to the
-            appropriate data types of the column.
-        """
-        return tuple(get_parser(col.dtype) for col in self._cols)
-
     def as_dict(self) -> dict:
         """Convert table information into a dictionary
 
@@ -325,8 +413,13 @@ class TableInfo(object):
             Dictionary containing columns and indices of this table.
             The output can be imported using ``TableInfo.from_list(**output)``
         """
-        return {"columns": [dict(vars(col).items()) for col in self._cols],
-                "indices": [i.as_dict() for i in sorted(self._indices.values())]}
+        return {
+            "columns": [
+                {k: v for k, v in vars(col).items() if not k.startswith("_")}
+                for col in self._cols
+            ],
+            "indices": [i.as_dict() for i in sorted(self._indices.values())]
+        }
 
     @classmethod
     def from_list(cls,
@@ -353,3 +446,30 @@ class TableInfo(object):
             for idx in indices:
                 table.add_index(IndexInfo(**idx))
         return table
+
+    def read_mysql_dump(self,
+                        path: Union[str, Path],
+                        reader: Optional[CsvParser] = None,
+                        aliases: Optional[dict] = None) -> Generator[NamedTuple,
+                                                                     None,
+                                                                     None]:
+        """Iterate over records of a MySql dump of this table
+
+        Args:
+            path: Path to input file
+            reader: CSV file parser. If ``None``, a new default reader will be
+                constructed.
+            aliases: Dictionary containing a column name and an alias for
+                selected columns. The resulting namedtuple will use the aliases
+                as column names. Names not found in aliases remain unchanged.
+
+        Yields:
+            One namedtuple per record of the input file
+        """
+        if reader is None:
+            reader = CsvParser()
+        Rec = self.create_record_type(aliases=aliases)
+        parsers = tuple(col._parser for col in self._cols)
+
+        for rec in reader(str(path), skip_rows=0, delimiter="\t"):
+            yield Rec(*(p(x) for p, x in zip(parsers, rec)))

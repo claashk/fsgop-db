@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import unittest
-from fsgop.db import SqliteDatabase, TableInfo
-from fsgop.db.startkladde import schema_v3 as sk_schema
+from fsgop.db import SqliteDatabase
+from fsgop.db.startkladde import get_schema
 from pathlib import Path
 
 TEST_DIR = Path(__file__).parent
@@ -13,6 +13,7 @@ class SqliteDatabaseTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.debug = True
         self.path = str(DB_PATH)
+        self.schema = get_schema()
 
     def tearDown(self) -> None:
         if not self.debug and DB_PATH.exists():
@@ -30,10 +31,10 @@ class SqliteDatabaseTestCase(unittest.TestCase):
     def test_create_table(self):
         self.maxDiff = None
         db = self.create_db()
-        db.create_table(self.table_info("people"))
+        db.create_table(self.schema["people"])
         schema = db.get_schema()
         actual = schema['people'].as_dict()
-        ref = sk_schema['people']
+        ref = self.schema['people'].as_dict()
 
         for col1, col2 in zip(ref['columns'], actual['columns']):
             self.assertDictEqual({k: v for k, v in col1.items() if k != "extra"},
@@ -46,9 +47,7 @@ class SqliteDatabaseTestCase(unittest.TestCase):
 
     def test_create_database(self):
         db = self.create_db()
-        for name in sk_schema.keys():
-            db.create_table(self.table_info(name))
-
+        db.reset(self.schema)
         schema = db.get_schema()
         self.assertSetEqual({"flights",
                              "launch_methods",
@@ -60,10 +59,6 @@ class SqliteDatabaseTestCase(unittest.TestCase):
                          schema["flights"].get_column("plane_id").name)
         self.assertEqual("planes(id)",
                          schema["flights"].get_column("plane_id").references)
-
-    @staticmethod
-    def table_info(name):
-        return TableInfo.from_list(name=name, **sk_schema[name])
 
 
 def suite():

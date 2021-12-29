@@ -30,8 +30,16 @@ class SqliteDatabase(Database):
         """
         self._db = sqlite3.connect(database, **kwargs)
         self._cursor = self._db.cursor()
-        self._cursor.execute("PRAGMA foreign_keys = ON")
+        self.enable_foreign_key_checks()
         self.schema = self.get_schema() if schema is None else dict(schema)
+
+    def enable_foreign_key_checks(self):
+        """Enable foreign key checks on this database"""
+        self._cursor.execute("PRAGMA foreign_keys = ON")
+
+    def disable_foreign_key_checks(self):
+        """Disable foreign key checks on this database"""
+        self._cursor.execute("PRAGMA foreign_keys = OFF")
 
     def list_tables(self) -> List[str]:
         """Get list of table names

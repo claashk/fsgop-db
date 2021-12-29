@@ -1,9 +1,7 @@
-from typing import Optional, Union, List, Iterable, NamedTuple, Generator
+from typing import Optional, List, Iterable
 import MySQLdb as mysql
-from pathlib import Path
 from .database import Database
 from .table_info import TableInfo, ColumnInfo, IndexInfo
-from .table_io import CsvParser
 
 
 class MysqlDatabase(Database):
@@ -42,8 +40,17 @@ class MysqlDatabase(Database):
         """
         self._db = mysql.connect(host, user, password, database)
         self._cursor = self._db.cursor()
+        self.enable_foreign_key_checks()
         if self.schema is None:
             self.schema = self.get_schema()
+
+    def enable_foreign_key_checks(self):
+        """Enable foreign key checks on this database"""
+        self._cursor.execute("SET foreign_key_checks = 1")
+
+    def disable_foreign_key_checks(self):
+        """Disable foreign key checks on this database"""
+        self._cursor.execute("SET foreign_key_checks = 0")
 
     def list_tables(self) -> List[str]:
         """Get list of table names
@@ -117,36 +124,3 @@ class MysqlDatabase(Database):
                            order=order[rec[5]],
                            sequence=int(rec[3]) - 1)
         return indices.values()
-
-    def iter_dump_file(self,
-                       path: Union[str, Path],
-                       table: Optional[str] = None,
-                       reader: Optional[CsvParser] = None,
-                       aliases: Optional[dict] = None) -> Generator[NamedTuple,
-                                                                    None,
-                                                                    None]:
-        """Import MySql dump file
-
-        Args:
-            path: Path to input file
-            table: Name of table to import. If ``None``, table name is assumed to
-                coincide with basename of file
-            reader: CSV file parser. If ``None``, a new default reader will be
-                constructed.
-            aliases: Dictionary containing a column name and an alias for
-                selected columns. The resulting namedtuple will use the aliases
-                as column names. Names not found in aliases remain unchanged.
-
-        Yields:
-            One namedtuple per record of the input file
-        """
-        if table is None:
-            table = Path(path).stem
-        if reader is None:
-            reader = CsvParser()
-        table_info = self.schema[table]
-        Rec = table_info.create_record_type(aliases=aliases)
-        parsers = table_info.record_parser(self.get_parser)
-
-        for rec in reader(str(path), skip_rows=0, delimiter="\t"):
-            yield Rec(*(p(x) for p, x in zip(parsers, rec)))

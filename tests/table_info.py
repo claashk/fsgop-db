@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 
 import unittest
-from datetime import datetime
-from fsgop.db import TableInfo, ColumnInfo, IndexInfo
+from datetime import datetime, date
+from pathlib import Path
+
+from fsgop.db import TableInfo, ColumnInfo, IndexInfo, Person
+from fsgop.db.startkladde import get_schema
+from fsgop.db.utils import kwargs_from
+
+
+TEST_DIR = Path(__file__).parent
 
 
 class TableInfoTestCase(unittest.TestCase):
@@ -77,6 +84,29 @@ class TableInfoTestCase(unittest.TestCase):
     def test_get_primary_key(self):
         t = TableInfo(columns=self.get_columns(), indices=self.get_indices())
         self.assertEqual("PRIMARY KEY (col1 DESC,col2)", t.primary_key())
+
+    def test_import_mysql_dump(self):
+        schema = get_schema()
+        recs = list(schema["people"].read_mysql_dump(
+                        TEST_DIR / "mysql-dump.tsv",
+                        aliases={"medical_validity": "birthday"}))
+        self.assertEqual(3, len(recs))
+        self.assertEqual("Otto", recs[0].first_name)
+        self.assertEqual(date(2022, 4, 7), recs[0].birthday)
+
+        self.assertEqual("Einstein", recs[1].last_name)
+        self.assertEqual(1, recs[1].check_medical_validity)
+        self.assertEqual("FSG-HH", recs[1].club)
+        self.assertEqual("Newton", recs[2].last_name)
+
+        layout = Person.layout(allow=type(recs[0])._fields)
+        self.assertSetEqual({"first_name", "last_name", "birthday", "comments"},
+                            set(layout.keys()))
+        persons = [Person(**kwargs_from(rec, layout=layout)) for rec in recs]
+        self.assertEqual(3, len(persons))
+        self.assertEqual("Otto", persons[0].first_name)
+        self.assertEqual("Lilienthal", persons[0].last_name)
+        self.assertIsNone(persons[0].uid)
 
 
 def suite():
