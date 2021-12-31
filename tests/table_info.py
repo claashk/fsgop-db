@@ -4,7 +4,7 @@ import unittest
 from datetime import datetime, date
 from pathlib import Path
 
-from fsgop.db import TableInfo, ColumnInfo, IndexInfo, Person
+from fsgop.db import TableInfo, ColumnInfo, IndexInfo, Person, sort_tables
 from fsgop.db.startkladde import get_schema
 from fsgop.db.utils import kwargs_from
 
@@ -107,6 +107,30 @@ class TableInfoTestCase(unittest.TestCase):
         self.assertEqual("Otto", persons[0].first_name)
         self.assertEqual("Lilienthal", persons[0].last_name)
         self.assertIsNone(persons[0].uid)
+
+    def test_references(self):
+        schema = get_schema()
+        refs = schema["people"].get_references()
+        self.assertFalse(refs)
+
+        refs = schema["flights"].get_references()
+        self.assertDictEqual({"people": {"id"},
+                              "planes": {"id"},
+                              "launch_methods": {"id"}},
+                             refs)
+
+        for k in refs.keys():
+            self.assertIn(k, {"people", "planes", "launch_methods"})
+
+    def test_sort(self):
+        schema = get_schema()
+        sorted_tables = sort_tables(schema.values())
+        self.assertListEqual(["launch_methods",
+                              "people",
+                              "planes",
+                              "schema_migrations",
+                              "flights"],
+                             [t.name for t in sorted_tables])
 
 
 def suite():

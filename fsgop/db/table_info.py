@@ -1,5 +1,6 @@
 from typing import Optional, Iterable, Generator, Tuple, NamedTuple, Union
-from typing import Type
+from typing import Type, List
+import re
 from collections import namedtuple
 from datetime import datetime, date
 from pathlib import Path
@@ -20,9 +21,10 @@ class ColumnInfo(object):
             referenced in this column, e.g. "Person(uid)"
         fmt: Format string for this column. Used by parser in some cases.
     """
+    references_pattern = re.compile(r"(\w+)\s*\((\w+)\)")
     default_date_format = "%Y-%m-%d"
-    default_time_format = "%H:%M"
-    default_datetime_format = "%Y-%m-%d %H:%M"
+    default_time_format = "%H:%M:%S"
+    default_datetime_format = "%Y-%m-%d %H:%M:%S"
 
     def __init__(self,
                  name: Optional[str] = None,
@@ -41,6 +43,21 @@ class ColumnInfo(object):
         self.fmt = str(fmt) if fmt is not None else None
         self._parser = None
         self._set_parser()
+
+    @property
+    def ref_info(self) -> tuple:
+        """Split references into table name and column name
+
+        Returns:
+            Table name and column name referenced by this column, tuple of two
+            ``None`` instances, if nothing is referenced.
+        """
+        if self.references:
+            m = self.references_pattern.match(self.references)
+            if m:
+                return m.group(1), m.group(2)
+            raise ValueError(f"Invalid reference string: '{self.references}'")
+        return None, None
 
     def has_auto_increment(self) -> bool:
         """Check if column is incremented automatically
@@ -309,6 +326,21 @@ class TableInfo(object):
             self.reset_record_type()
         return self._record_type
 
+    def get_references(self) -> dict:
+        """Get information about references in this table
+
+        Returns:
+            Dictionary with referenced table name as key and a set as value. The
+            set contains the names of all columns in the referenced table which
+            are referenced by this table.
+        """
+        retval = dict()
+        for col in self._cols:
+            table, column = col.ref_info
+            if table:
+                retval.setdefault(table, set()).add(column)
+        return retval
+
     def indices(self) -> Generator[IndexInfo, None, None]:
         """Iterate over all indices of this table
 
@@ -473,3 +505,31 @@ class TableInfo(object):
 
         for rec in reader(str(path), skip_rows=0, delimiter="\t"):
             yield Rec(*(p(x) for p, x in zip(parsers, rec)))
+
+
+def sort_tables(tables: Iterable[TableInfo]) -> List[TableInfo]:
+    """Sorts table by name and references
+
+    Sorts a sequence of tables, such that tables can be created in the given
+    order without violation of reference constraints.
+
+    Args:
+        tables: Sequence of input tables
+
+    Returns:
+        list: Sorted list of tables
+    """
+    _tables = {table.name: table for table in tables}
+    _unsorted = set(_tables.keys())
+    _sorted = []
+
+    while _unsorted:
+        tmp = [k for k in _unsorted
+               if all(t in _sorted for t in _tables[k].get_references().keys())]
+        if not tmp:
+            raise ValueError("Dependency loop detected")
+        for name in sorted(tmp):
+            _sorted.append(name)
+            _unsorted.remove(name)
+
+    return [_tables[k] for k in _sorted]
