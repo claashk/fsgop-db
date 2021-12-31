@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Union, Optional, Set
+from typing import Union, Optional, Set, Iterable
 
 from .record import Record, to
 from .vehicle import Vehicle
@@ -145,3 +145,29 @@ class Mission(Record):
             any((bool(self.crew() & other.crew()),
                  self.vehicle == other.vehicle))
         ))
+
+    @classmethod
+    def layout(cls, prefix: str = "", allow: Iterable[str] = None) -> dict:
+        retval = super(Mission, cls).layout(prefix=prefix, allow=allow)
+        for p in {"pilot",
+                  "copilot",
+                  "passenger1",
+                  "passenger2",
+                  "passenger3",
+                  "passenger4",
+                  "charge_person"}:
+            kwargs = Person.layout(prefix=f"{p}_", allow=allow)
+            if kwargs:
+                retval[p] = kwargs
+
+        kwargs = Vehicle.layout(prefix="vehicle", allow=allow)
+        if kwargs:
+            retval["vehicle"] = kwargs
+
+        if not prefix.endswith("launch"):
+            kwargs = cls.layout(prefix=f"{prefix}launch_", allow=allow)
+            if kwargs:
+                retval["launch"] = kwargs
+        return retval
+
+
