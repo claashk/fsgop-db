@@ -1,7 +1,10 @@
-from typing import Optional, Generator, Iterable, Callable, NamedTuple, Any
-from datetime import datetime
-from .table_info import TableInfo
-from .table_info import IndexInfo
+from typing import Optional, Generator, Iterable, NamedTuple, Any
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from tarfile import TarFile
+
+from .table_info import TableInfo, IndexInfo, sort_tables
+from .table_io import CsvParser
 
 
 class Database(object):
@@ -13,9 +16,6 @@ class Database(object):
         **kwargs: Additional keyword arguments forwarded verbatim to
            :meth:`Database.connect`
     """
-    date_format = "%Y-%m-%d"
-    time_format = "%H:%M"
-    datetime_format = f"{date_format} {time_format}"
     placeholder = "?"
     placeholder_prefix = ":"
     placeholder_postfix = ""
@@ -52,6 +52,14 @@ class Database(object):
         """
         self._db.commit()
 
+    def enable_foreign_key_checks(self):
+        """Enable foreign key checks on this database"""
+        raise NotImplementedError()
+
+    def disable_foreign_key_checks(self):
+        """Disable foreign key checks on this database"""
+        raise NotImplementedError()
+
     def list_tables(self) -> list:
         """Get list of table names. Has to be implemented by derived class.
                     
@@ -83,6 +91,28 @@ class Database(object):
         for name in tables:
             schema[name] = self.get_table_info(name)
         return schema
+
+    def reset(self, schema: Optional[dict] = None) -> None:
+        """Delete all tables and re-create empty database with new schema
+
+        WARNING: Deletes all tables including their content!
+
+        Args:
+            schema: Schema dictionary
+        """
+        if schema is None:
+            schema = self.schema if self.schema is not None else dict()
+
+        tables = self.list_tables()
+        if tables:
+            self.disable_foreign_key_checks()
+            for table in tables:
+                self._cursor.execute(f"DROP TABLE IF EXISTS '{table}'")
+            self.enable_foreign_key_checks()
+
+        for info in schema.values():
+            self.create_table(table_info=info)
+        self.schema = schema
 
     def create_table(self, table_info: TableInfo, force: bool = False):
         """Create a new table
@@ -178,7 +208,7 @@ class Database(object):
                are ignored. Defaults to ``False``.
         """
         table = self.schema[name]
-        command = str(f"{'REPLACE' if force else 'INSERT IGNORE'} "
+        command = str(f"{'REPLACE' if force else 'INSERT OR IGNORE'} "
                       f"INTO {table.name} "
                       f"VALUES {table.format(self.placeholder)}")
         self._cursor.executemany(command, rows)
@@ -283,28 +313,6 @@ class Database(object):
         id_col = self.schema[name]._cols[0]
         return self.unique(name, where=f"{id_col}={int(uid)}")
 
-    def get_parser(self, dtype: str) -> Callable:
-        """Get default parser for data types in this database
-
-        Args:
-            dtype: String identifying data type as listed in schema
-
-        Returns:
-            Function yielding correct datatype when applied to a string
-        """
-        s = dtype.lower()
-        if "int" in s:
-            return lambda x: int(x) if x != r"\N" else None
-        if "real" in s or "floa" in s or "doub" in s:
-            return lambda x: float(x) if x != r"\N" else None
-        if s == "date":
-            return(lambda x: datetime.strptime(x, self.date_format).date()
-                   if x != r"\N" else None)
-        if s == "datetime":
-            return (lambda x: datetime.strptime(x, self.datetime_format)
-                    if x != r"\N" else None)
-        return lambda x: str(x) if x != r"\N" else None
-
     @classmethod
     def var(cls, name: str) -> str:
         """Get variable as named placeholder
@@ -316,3 +324,34 @@ class Database(object):
             Properly escaped string to use `name` as variable in database query
         """
         return f"{cls.placeholder_prefix}{name}{cls.placeholder_postfix}"
+
+    @classmethod
+    def from_dump(cls, path, schema, database, aliases=None):
+        src = Path(path)
+        if src.is_file() and "".join(src.suffixes) in (".tar.gz", ".tgz"):
+            archive = TarFile(src, mode="r:gz")
+            with TemporaryDirectory() as tmpdir:
+                dest = tmpdir / src.stem
+                dest.mkdir(exist_ok=True)
+                archive.extractall(path=dest)
+                return cls.from_dump(dest, schema, database)
+
+        if not src.is_dir():
+            raise ValueError(f"{src} is not a directory")
+
+        db = cls(database)
+        db.reset(schema)
+        reader = CsvParser()
+
+        if aliases is None:
+            aliases = dict()
+
+        for table in sort_tables(schema.values()):
+            table_src = src / Path(table.name).with_suffix(".txt")
+            print(f"Importing {table_src} ...")
+            db.insert(table.name,
+                      table.read_mysql_dump(table_src,
+                                            reader=reader,
+                                            aliases=aliases.get(table.name)))
+        return db
+
