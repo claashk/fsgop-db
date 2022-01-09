@@ -15,6 +15,8 @@ class ColumnInfo(object):
         name: Column name
         dtype: Data type
         allows_null: ``True`` if and only if NULL is a valid value
+        force_null: If ``True`` any value evaluated as ``False`` (i.e. 0, "") is
+            converted to NULL: Defaults to ``False``.
         default_value: The default value for the column
         extra: Extra information, such as 'auto_increment'
         references: Name of a table, which is used to store information
@@ -30,6 +32,7 @@ class ColumnInfo(object):
                  name: Optional[str] = None,
                  dtype: Optional[str] = None,
                  allows_null: bool = False,
+                 force_null: bool = False,
                  default_value: Optional[str] = None,
                  extra: str = "",
                  references: Optional[str] = None,
@@ -37,6 +40,7 @@ class ColumnInfo(object):
         self.name = name
         self.dtype = dtype
         self.allows_null = allows_null
+        self.force_null = force_null
         self.default_value = default_value
         self.extra = extra
         self.references = references
@@ -87,6 +91,10 @@ class ColumnInfo(object):
         if self.references:
             return f" REFERENCES {self.references}"
         return ""
+
+    @staticmethod
+    def _force_none(f):
+        return lambda x: f(x) or None
 
     @staticmethod
     def _int_parser(s: str) -> Optional[int]:
@@ -176,6 +184,9 @@ class ColumnInfo(object):
                 self.fmt = self.default_datetime_format
         else:
             self._parser = self._str_parser
+
+        if self.allows_null and self.force_null:
+            self._parser = self._force_none(self._parser)
 
 
 class IndexInfo(object):
