@@ -175,6 +175,8 @@ class CsvParser(object):
 
         self.header = dict()
         self.row_type = None
+        self._cur = None
+        self._line_number = -1
 
     def __call__(self, *args, **kwargs):
         """Invoke the parser
@@ -187,6 +189,14 @@ class CsvParser(object):
             object: Same as :meth:`parse`
         """
         yield from self.parse(*args, **kwargs)
+
+    @property
+    def last_record(self):
+        return self._cur
+
+    @property
+    def line_number(self):
+        return self._line_number
 
     def parse_header(self, reader, max_rows=-1):
         """Extract header information from CSV file
@@ -245,8 +255,9 @@ class CsvParser(object):
         return header, row_type
 
     def iter_body(self, reader):
-        for row in reader:
-            yield self.row_type(*row)
+        for self._line_number, row in enumerate(reader, start=1):
+            self._cur = self.row_type(*row)
+            yield self._cur
 
     def parse(self, path, skip_rows=-1, sheet=None, fmt=None, **kwargs):
         """Parses a csv file defining the VSC definition
