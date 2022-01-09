@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, Generator, Iterable, NamedTuple, Any
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -5,6 +6,8 @@ from tarfile import TarFile
 
 from .table_info import TableInfo, IndexInfo, sort_tables
 from .table_io import CsvParser
+
+logger = logging.getLogger(__name__)
 
 
 class Database(object):
@@ -30,6 +33,12 @@ class Database(object):
         if database is not None:
             self.connect(database=database, schema=schema, **kwargs)
     
+    def __enter__(self) -> "Database":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.disconnect()
+
     def connect(self,
                 database: Optional[str] = None,
                 schema: Optional[dict] = None,
@@ -340,18 +349,21 @@ class Database(object):
             raise ValueError(f"{src} is not a directory")
 
         db = cls(database)
-        db.reset(schema)
         reader = CsvParser()
-
         if aliases is None:
             aliases = dict()
 
-        for table in sort_tables(schema.values()):
-            table_src = src / Path(table.name).with_suffix(".txt")
-            print(f"Importing {table_src} ...")
-            db.insert(table.name,
-                      table.read_mysql_dump(table_src,
-                                            reader=reader,
-                                            aliases=aliases.get(table.name)))
+        try:
+            db.reset(schema)
+            for table in sort_tables(schema.values()):
+                table_src = src / Path(table.name).with_suffix(".txt")
+                logger.info(f"Importing {table_src} ...")
+                db.insert(table.name,
+                          table.read_mysql_dump(table_src,
+                                                reader=reader,
+                                                aliases=aliases.get(table.name)))
+        except:
+            db.disconnect()
+            logger.error(f"In line {reader.line_number} of {table_src}:\n")
+            raise
         return db
-
