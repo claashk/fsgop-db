@@ -191,7 +191,7 @@ def kwargs_from(obj: object, layout: dict) -> dict:
             invocation of :func:`kwargs_from`.
 
     Returns:
-         Possibly nested keyword arguments
+         Possibly nested dictionary of keyword arguments
     """
     return {
         k: getattr(obj, v) if isinstance(v, str) else kwargs_from(obj, v)
