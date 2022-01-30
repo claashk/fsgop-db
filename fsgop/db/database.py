@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Generator, Iterable, NamedTuple, Any
+from typing import Optional, Generator, Iterable, NamedTuple, Any, Union
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from tarfile import TarFile
@@ -335,7 +335,23 @@ class Database(object):
         return f"{cls.placeholder_prefix}{name}{cls.placeholder_postfix}"
 
     @classmethod
-    def from_dump(cls, path, schema, database, aliases=None):
+    def from_dump(cls,
+                  path: Union[str, Path],
+                  schema: dict,
+                  database: str) -> "Database":
+        """Create database from ASCII dump files as created by mysql dump
+
+        Args:
+            path: Path to directory or compressed archive containing the dump
+                files. The dump files shall have the table name as basename and
+                suffix `.txt`.
+            schema: Dictionary describing the expected schema of the database to
+                create.
+            database: Name of database to create. If a database with this name
+                already exists, it will be overwritten.
+        Return:
+            Database: Database created from dump files
+        """
         src = Path(path)
         if src.is_file() and "".join(src.suffixes) in (".tar.gz", ".tgz"):
             archive = TarFile(src, mode="r:gz")
@@ -350,8 +366,6 @@ class Database(object):
 
         db = cls(database)
         reader = CsvParser()
-        if aliases is None:
-            aliases = dict()
 
         try:
             db.reset(schema)
@@ -359,11 +373,10 @@ class Database(object):
                 table_src = src / Path(table.name).with_suffix(".txt")
                 logger.info(f"Importing {table_src} ...")
                 db.insert(table.name,
-                          table.read_mysql_dump(table_src,
-                                                reader=reader,
-                                                aliases=aliases.get(table.name)))
+                          table.read_mysql_dump(table_src, reader=reader))
         except:
             db.disconnect()
             logger.error(f"In line {reader.line_number} of {table_src}:\n")
             raise
+        db.commit()
         return db
