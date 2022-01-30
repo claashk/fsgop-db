@@ -147,7 +147,23 @@ class Mission(Record):
         ))
 
     @classmethod
-    def layout(cls, prefix: str = "", allow: Iterable[str] = None) -> dict:
+    def layout(cls,
+               prefix: str = "",
+               allow: Optional[Iterable[str]] = None) -> dict:
+        """Get layout of this class
+
+        Overrides the default implementation, which does not work for nested
+        data models.
+
+        Args:
+             prefix: Prefix to add to all keys. Defaults to None
+             allow: Iterable of allowed values. If not ``None``, only names in
+                 this dictionary are included in the output. If a prefix is
+                 provided, then values must include the prefix.
+
+        Returns:
+            Layout dictionary.
+        """
         retval = super(Mission, cls).layout(prefix=prefix, allow=allow)
         for p in {"pilot",
                   "copilot",
