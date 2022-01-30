@@ -159,6 +159,11 @@ class Record(object):
     def layout(cls, prefix: str = "", allow: Iterable[str] = None) -> dict:
         """Get layout of this class
 
+        The layout is a map, which associates each keyword argument accepted
+        by the constructor with the name of an attribute. The attribute value can
+        then be passed as keyword argument to the constructor, e.g. using
+        :func:`~fsgop.db.utils.kwargs_from`.
+
         This default implementation works for non-nested classes only.
         Args:
              prefix: Prefix to add to all keys. Defaults to None
