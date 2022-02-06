@@ -204,6 +204,35 @@ class Database(object):
         for row in self._cursor:
             yield _type(*row)
 
+    def count(self,
+              name: str,
+              where: Optional[str] = None,
+              order: Optional[str] = None,
+              **kwargs) -> Generator[NamedTuple, None, None]:
+        """Count records matching criteria
+
+        Args:
+            name: Name of table to analyse. Must be a valid key into the schema
+                dictionary.
+            where: Any filter string in the format passed to *SQL* ``WHERE``
+                command. If *None*, no filter is applied. Defaults to ``None``.
+                Use escaped code for variables and pass the variables as keyword
+                arguments to avoid SQL injection.
+            order: Optional order key. Passed verbatim to *SQL* `ORDER BY`
+                statement. Defaults to ``None``.
+            **kwargs: Variables to be inserted into the `where` and `order`
+                strings in a safe manner.
+
+        Yields:
+            Matching table records
+        """
+        table = self.schema[name]
+        where_str = f" WHERE {where}" if where is not None else ""
+        order_str = f" ORDER BY {order}" if order else ""
+        self._cursor.execute(f"SELECT COUNT(*) FROM {table.name}{where_str}{order_str}",
+                             kwargs)
+        return self._cursor.fetchone()[0]
+
     def insert(self,
                name: str,
                rows: Iterable[tuple],
