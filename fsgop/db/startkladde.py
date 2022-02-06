@@ -24,6 +24,7 @@ schema_v3 = {
             {'name': 'copilot_id',
              'dtype': 'int(11)',
              'allows_null': True,
+             'force_null': True,
              'default_value': None,
              'extra': '',
              'references': "people(id)"},
