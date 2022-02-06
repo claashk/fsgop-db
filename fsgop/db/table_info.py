@@ -1,9 +1,10 @@
-from typing import Optional, Iterable, Generator, Tuple, NamedTuple, Union
+from typing import Optional, Iterable, Generator, Tuple, NamedTuple, Union, Dict
 from typing import Type, List
 import re
 from collections import namedtuple
 from datetime import datetime, date
 from pathlib import Path
+from copy import deepcopy
 
 from .table_io import CsvParser
 
@@ -544,3 +545,22 @@ def sort_tables(tables: Iterable[TableInfo]) -> List[TableInfo]:
             _unsorted.remove(name)
 
     return [_tables[k] for k in _sorted]
+
+
+def to_schema(d: Dict[str, Union[TableInfo, dict]]) -> Dict[str, TableInfo]:
+    """Create a database schema from a dictionary
+
+    A schema is a dictionary containing table names as keys and an associated
+    TableInfo object as value.
+
+    Args:
+        d: Dictionary containing strings as keys and either a TableInfo object or
+            a dictionary with key value arguments as value. Dictionaries will
+            be converted to TableInfo objects using TableInfo.from_list.
+
+    Returns:
+        Valid schema constructed from input dictionary
+    """
+    _dict = deepcopy(d)
+    return {k: v if isinstance(v, TableInfo) else TableInfo.from_list(k, **v)
+            for k, v in _dict.items()}

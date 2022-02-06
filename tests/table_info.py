@@ -5,7 +5,8 @@ from datetime import datetime, date
 from pathlib import Path
 
 from fsgop.db import TableInfo, ColumnInfo, IndexInfo, Person, sort_tables
-from fsgop.db.startkladde import get_schema
+from fsgop.db import to_schema
+from fsgop.db.startkladde import schema_v3
 from fsgop.db.utils import kwargs_from
 
 
@@ -29,6 +30,10 @@ class TableInfoTestCase(unittest.TestCase):
                                                   ("col3", 0, 2)]),
             IndexInfo("primary", True, True, [("col2", 1, 1), ("col1", -1, 0)])
         ]
+
+    @staticmethod
+    def get_schema():
+        return to_schema(schema_v3)
 
     def test_column_construction(self):
         col = ColumnInfo()
@@ -86,7 +91,7 @@ class TableInfoTestCase(unittest.TestCase):
         self.assertEqual("PRIMARY KEY (col1 DESC,col2)", t.primary_key())
 
     def test_import_mysql_dump(self):
-        schema = get_schema()
+        schema = self.get_schema()
         recs = list(schema["people"].read_mysql_dump(
                         TEST_DIR / "mysql-dump.tsv",
                         aliases={"medical_validity": "birthday"}))
@@ -109,7 +114,7 @@ class TableInfoTestCase(unittest.TestCase):
         self.assertIsNone(persons[0].uid)
 
     def test_references(self):
-        schema = get_schema()
+        schema = self.get_schema()
         refs = schema["people"].get_references()
         self.assertFalse(refs)
 
@@ -123,7 +128,7 @@ class TableInfoTestCase(unittest.TestCase):
             self.assertIn(k, {"people", "planes", "launch_methods"})
 
     def test_sort(self):
-        schema = get_schema()
+        schema = self.get_schema()
         sorted_tables = sort_tables(schema.values())
         self.assertListEqual(["launch_methods",
                               "people",

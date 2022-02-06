@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from tarfile import TarFile
 
-from .table_info import TableInfo, IndexInfo, sort_tables
+from .table_info import TableInfo, IndexInfo, sort_tables, to_schema
 from .table_io import CsvParser
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class Database(object):
                  **kwargs) -> None:
         self._db = None
         self._cursor = None
-        self.schema = dict(schema) if schema is not None else None
+        self.schema = to_schema(schema) if schema is not None else None
         if db is not None:
             self.connect(db=db, schema=schema, **kwargs)
     
@@ -110,7 +110,9 @@ class Database(object):
             schema: Schema dictionary
         """
         if schema is None:
-            schema = self.schema if self.schema is not None else dict()
+            _schema = self.schema if self.schema is not None else dict()
+        else:
+            _schema = to_schema(schema)
 
         tables = self.list_tables()
         if tables:
@@ -119,9 +121,9 @@ class Database(object):
                 self._cursor.execute(f"DROP TABLE IF EXISTS '{table}'")
             self.enable_foreign_key_checks()
 
-        for info in schema.values():
+        for info in _schema.values():
             self.create_table(table_info=info)
-        self.schema = schema
+        self.schema = _schema
 
     def create_table(self, table_info: TableInfo, force: bool = False):
         """Create a new table
@@ -369,7 +371,7 @@ class Database(object):
 
         try:
             database.reset(schema)
-            for table in sort_tables(schema.values()):
+            for table in sort_tables(database.schema.values()):
                 table_src = src / Path(table.name).with_suffix(".txt")
                 logger.info(f"Importing {table_src} ...")
                 database.insert(table.name,

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import unittest
-from fsgop.db import SqliteDatabase
-from fsgop.db.startkladde import get_schema
+from fsgop.db import SqliteDatabase, to_schema
+from fsgop.db.startkladde import schema_v3
 from pathlib import Path
 
 TEST_DIR = Path(__file__).parent
@@ -13,7 +13,7 @@ class SqliteDatabaseTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.debug = True
         self.path = str(DB_PATH)
-        self.schema = get_schema()
+        self.schema = to_schema(schema_v3)
 
     def tearDown(self) -> None:
         if not self.debug and DB_PATH.exists():

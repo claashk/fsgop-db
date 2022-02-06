@@ -1,5 +1,17 @@
 from .table_info import TableInfo
 
+WINCH_LAUNCH = 1
+AEROTOW = 2
+SELF_LAUNCH = 3
+
+
+LOG_STRINGS = {
+    WINCH_LAUNCH: "W",
+    AEROTOW: "FS",
+    SELF_LAUNCH: "ES"
+}
+
+
 schema_v3 = {
     'flights': {
         'columns': [
@@ -61,6 +73,7 @@ schema_v3 = {
             {'name': 'launch_method_id',
              'dtype': 'int(11)',
              'allows_null': True,
+             'force_null': True,
              'default_value': None,
              'extra': '',
              'references': "launch_methods(id)"},
@@ -467,13 +480,3 @@ schema_v3 = {
              'is_primary': True,
              'columns': [('version', 1)]}]}
 }
-
-
-def get_schema() -> dict:
-    """Get schema for startkladde database
-
-    Returns:
-        Dictionary containing table name as key and TableInfo as value for
-        each table of the Startkladde database
-    """
-    return {k: TableInfo.from_list(k, **v) for k, v in schema_v3.items()}
