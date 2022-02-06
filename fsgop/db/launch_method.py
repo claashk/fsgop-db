@@ -1,20 +1,12 @@
 from .record import Record, to
 from .vehicle import Vehicle
 
-WINCH_LAUNCH = 1
-AEROTOW = 2
-SELF_LAUNCH = 3
-
-
-LOG_STRINGS = {
-    WINCH_LAUNCH: "W",
-    AEROTOW: "FS",
-    SELF_LAUNCH: "ES"
-}
-
 
 class LaunchMethod(Record):
-    """Native launch method model
+    """Launch method model
+
+    This method is only required for compatibility with the startkladde data
+    model. The native data model does not contain launch methods as data objects.
 
     Arguments:
         uid: ID of this record in ``launch_methods`` table.
