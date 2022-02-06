@@ -172,7 +172,7 @@ class NameAdapter(object):
         self._rectype = rectype
         add = []
         for key in rectype._fields:
-            if not key.endswith("name"):
+            if not key.endswith("name") or key.endswith("nickname"):
                 copy, prefix = True, None
             elif key.endswith("first_name"):
                 prefix = key[:-10]
