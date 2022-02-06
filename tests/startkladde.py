@@ -39,6 +39,12 @@ class StartkladdeTestCase(unittest.TestCase):
 
             persons = list(iter_persons(db))
             self.assertEqual(len(people), len(persons))
+            for p1, p2 in zip(people, persons):
+                self.assertEqual(p1.last_name, p2.last_name)
+                self.assertEqual(p1.first_name, p2.first_name)
+                self.assertEqual(p1.id, p2.uid)
+                # TODO: Check how to get values from set
+                #self.assertEqual(p1.medical_validity, p2["medical"])
 
 
 def suite():
