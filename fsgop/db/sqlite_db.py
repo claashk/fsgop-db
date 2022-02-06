@@ -8,27 +8,27 @@ class SqliteDatabase(Database):
     """Sqlite database implementation
 
     Args:
-        database: Name of Database to open.
+        db: Name of Database to open.
         schema: Schema in dictionary form.
     """
     def __init__(self,
-                 database: Optional[str] = None,
+                 db: Optional[str] = None,
                  schema: Optional[dict] = None,
                  **kwargs) -> None:
-        super().__init__(database=database, schema=schema, **kwargs)
+        super().__init__(db=db, schema=schema, **kwargs)
 
     def connect(self,
-                database: Optional[str] = None,
+                db: Optional[str] = None,
                 schema: Optional[dict] = None,
                 **kwargs) -> None:
         """Connect to sqlite database
         
         Args:
-            database: Name of Database to open.
+            db: Name of Database to open.
             schema: Schema to use.
             **kwargs: Keyword arguments passed verbatim to ``sqlite3.connect``
         """
-        self._db = sqlite3.connect(database, **kwargs)
+        self._db = sqlite3.connect(db, **kwargs)
         self._cursor = self._db.cursor()
         self.enable_foreign_key_checks()
         self.schema = self.get_schema() if schema is None else dict(schema)

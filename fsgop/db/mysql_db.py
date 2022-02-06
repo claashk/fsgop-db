@@ -8,7 +8,7 @@ class MysqlDatabase(Database):
     """MySql Database implementation
 
     Args:
-        database: Name of Database to open.
+        db: Name of Database to open.
         schema: Database schema to use
         **kwargs: Keyword arguments passed verbatim to
             :meth:`MysqlDatabase.connect`
@@ -18,13 +18,13 @@ class MysqlDatabase(Database):
     placeholder_postfix = ")"
 
     def __init__(self,
-                 database: Optional[str] = None,
+                 db: Optional[str] = None,
                  schema: Optional[dict] = None,
                  **kwargs) -> None:
-        super().__init__(database=database, schema=schema, **kwargs)
+        super().__init__(db=db, schema=schema, **kwargs)
 
     def connect(self,
-                database: Optional[str] = None,
+                db: Optional[str] = None,
                 schema: Optional[dict] = None,
                 host: str = "localhost",
                 user: str = "user",
@@ -32,13 +32,13 @@ class MysqlDatabase(Database):
         """Connect to MySQL server
         
         Args:
-            database: Name of Database to open. Defaults to ``None``.
+            db: Name of Database to open. Defaults to ``None``.
             schema: Database schema to use. Defaults to ``None``.
             host: Hostname. Defaults to ``'localhost'``.
             user: MySQL username. Defaults to ``'user'``.
             password: Password for user. Defaults to ``None``.
         """
-        self._db = mysql.connect(host, user, password, database)
+        self._db = mysql.connect(host, user, password, db)
         self._cursor = self._db.cursor()
         self.enable_foreign_key_checks()
         if self.schema is None:

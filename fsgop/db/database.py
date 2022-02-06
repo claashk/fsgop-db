@@ -14,7 +14,7 @@ class Database(object):
     """Base class implementing a generic database interface
 
     Args:
-        database: Name of Database to open. Defaults to ``None``
+        db: Name of Database to open. Defaults to ``None``
         schema: Dictionary describing the underlying schema of the database.
         **kwargs: Additional keyword arguments forwarded verbatim to
            :meth:`Database.connect`
@@ -24,14 +24,14 @@ class Database(object):
     placeholder_postfix = ""
 
     def __init__(self,
-                 database: Optional[str] = None,
+                 db: Optional[str] = None,
                  schema: Optional[dict] = None,
                  **kwargs) -> None:
         self._db = None
         self._cursor = None
         self.schema = dict(schema) if schema is not None else None
-        if database is not None:
-            self.connect(database=database, schema=schema, **kwargs)
+        if db is not None:
+            self.connect(db=db, schema=schema, **kwargs)
     
     def __enter__(self) -> "Database":
         return self
@@ -40,13 +40,13 @@ class Database(object):
         self.disconnect()
 
     def connect(self,
-                database: Optional[str] = None,
+                db: Optional[str] = None,
                 schema: Optional[dict] = None,
                 **kwargs) -> None:
         """Connect to server. Has to be implemented by derived class.
 
         Args:
-            database: Name of Database to open.
+            db: Name of Database to open.
             schema: Schema
             **kwargs: Additional keyword arguments
         """
@@ -184,7 +184,7 @@ class Database(object):
                 arguments to avoid SQL injection.
             order: Optional order key. Passed verbatim to *SQL* `ORDER BY`
                 statement. Defaults to ``None``.
-            rectype: Type returned by this class. Must be constructible
+            rectype: Type returned by this class. Must be constructable
                 from the columns in this class. If not specified, a namedtuple
                 will be constructed from the table info.
             **kwargs: Variables to be inserted into the `where` and `order`
@@ -338,7 +338,7 @@ class Database(object):
     def from_dump(cls,
                   path: Union[str, Path],
                   schema: dict,
-                  database: str) -> "Database":
+                  db: str) -> "Database":
         """Create database from ASCII dump files as created by mysql dump
 
         Args:
@@ -347,7 +347,7 @@ class Database(object):
                 suffix `.txt`.
             schema: Dictionary describing the expected schema of the database to
                 create.
-            database: Name of database to create. If a database with this name
+            db: Name of database to create. If a database with this name
                 already exists, it will be overwritten.
         Return:
             Database: Database created from dump files
@@ -359,24 +359,24 @@ class Database(object):
                 dest = tmpdir / src.stem
                 dest.mkdir(exist_ok=True)
                 archive.extractall(path=dest)
-                return cls.from_dump(dest, schema, database)
+                return cls.from_dump(dest, schema, db)
 
         if not src.is_dir():
             raise ValueError(f"{src} is not a directory")
 
-        db = cls(database)
+        database = cls(db)
         reader = CsvParser()
 
         try:
-            db.reset(schema)
+            database.reset(schema)
             for table in sort_tables(schema.values()):
                 table_src = src / Path(table.name).with_suffix(".txt")
                 logger.info(f"Importing {table_src} ...")
-                db.insert(table.name,
-                          table.read_mysql_dump(table_src, reader=reader))
+                database.insert(table.name,
+                                table.read_mysql_dump(table_src, reader=reader))
         except:
-            db.disconnect()
+            database.disconnect()
             logger.error(f"In line {reader.line_number} of {table_src}:\n")
             raise
-        db.commit()
-        return db
+        database.commit()
+        return database
