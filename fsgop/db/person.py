@@ -2,6 +2,7 @@ from typing import Optional, Union, Type, Iterable, Tuple
 from datetime import date, datetime
 import re
 from collections import namedtuple
+from itertools import chain
 
 from .record import Record, to
 from .property import Property
@@ -241,7 +242,7 @@ class NameAdapter(object):
     def apply(cls,
               records: Iterable[namedtuple],
               rectype: Optional[Type[namedtuple]] = None
-    ) -> Tuple[Iterable[namedtuple], Type[namedtuple]]:
+              ) -> Tuple[Iterable[namedtuple], Type[namedtuple]]:
         """Apply name adapter to sequence if required
 
         Args:
@@ -253,9 +254,13 @@ class NameAdapter(object):
             output tuples.
         """
         if rectype is None:
-            if not records:
+            it = iter(records)
+            try:
+                first = next(it)
+            except StopIteration:
                 return records, None
-            rectype = type(records[0])
+            rectype = type(first)
+            records = chain([first], it)
         f = cls(rectype)
         if f:
             return map(f, records), f.record_type
