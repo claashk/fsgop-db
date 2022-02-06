@@ -1,4 +1,7 @@
-from .table_info import TableInfo
+from typing import Generator
+from .sqlite_db import SqliteDatabase
+from .person import Person, PersonProperty, NameAdapter
+from .utils import kwargs_from, get_value
 
 WINCH_LAUNCH = 1
 AEROTOW = 2
@@ -480,3 +483,29 @@ schema_v3 = {
              'is_primary': True,
              'columns': [('version', 1)]}]}
 }
+
+
+def iter_persons(db: SqliteDatabase) -> Generator[Person, None, None]:
+    """Get all persons from a startkladde database
+
+    Args:
+        db: Startkladde database
+
+    Yields:
+        One native Person instance per person found in db
+    """
+    rectype = db.schema["people"].create_record_type(aliases={"id": "uid"})
+    people, _type = NameAdapter.apply(db.select("people", rectype=rectype))
+    layout = Person.layout(allow=_type._fields)
+    for p in people:
+        person = Person(**kwargs_from(p, layout=layout))
+        email = get_value(p.comments, "email")
+        if email is not None:
+            PersonProperty(name="email", value=email).add_to(person)
+        if p.medical_validity is not None:
+            PersonProperty(name="medical",
+                           value="class 2",
+                           valid_until=p.medical_validity).add_to(person)
+        yield person
+
+
