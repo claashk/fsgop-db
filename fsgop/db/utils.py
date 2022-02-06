@@ -1,5 +1,7 @@
+from typing import Iterable
 import re
 from datetime import date, datetime
+from itertools import chain
 
 DATE_FORMAT = "%Y-%m-%d"
 
@@ -197,3 +199,37 @@ def kwargs_from(obj: object, layout: dict) -> dict:
         k: getattr(obj, v) if isinstance(v, str) else kwargs_from(obj, v)
         for k, v in layout.items()
     }
+
+
+class Sequence(object):
+    """Analyse sequence objects
+
+    Allows to analyse the first element of a sequence and to iterate over the
+    entire sequence including the first element
+
+    Args:
+        seq: Sequence to analyse and wrap
+    """
+    def __init__(self, seq: Iterable):
+        self._iter = iter(seq)
+        self._first = None
+
+        for x in self._iter:
+            self._first = x
+            break
+
+    def __iter__(self) -> Iterable:
+        if self._first is not None:
+            yield from chain((self._first,), self._iter)
+        else:
+            yield from self._iter
+
+    def __bool__(self):
+        return self._first is not None
+
+    @property
+    def element_type(self):
+        """Get type of first element in sequence"""
+        if self._first is None:
+            return None
+        return type(self._first)
