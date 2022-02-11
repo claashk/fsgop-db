@@ -2,7 +2,7 @@
 
 import unittest
 from fsgop.db.utils import ASCII, iter_attrs, copy_attrs, all_attrs_equal
-from fsgop.db.utils import get_value, set_value
+from fsgop.db.utils import get_value, set_value, chunk
 
 
 class MyClass(object):
@@ -93,6 +93,24 @@ class UtilsTestCase(unittest.TestCase):
                          set_value("key2", "another value", "key1='a value'"))
         self.assertEqual("key='yes, another value'",
                          set_value("key", "yes, another value", "key='a value'"))
+
+    def test_chunk(self):
+        for i, packet in enumerate(chunk(range(50), 10)):
+            self.assertListEqual(list(range(10*i, 10*(i+1))), list(packet))
+
+        for i, packet in enumerate(chunk(range(55), 10)):
+            if i < 5:
+                self.assertListEqual(list(range(10 * i, 10 * (i + 1))),
+                                     list(packet))
+            else:
+                self.assertListEqual(list(range(50, 55)), list(packet))
+
+        for i, packet in enumerate(chunk(range(55), 1)):
+            self.assertEqual(i, packet)
+
+        for i, packet in enumerate(chunk(range(53), -1)):
+            self.assertEqual(i, 0)
+            self.assertListEqual(list(range(53)), list(packet))
 
 
 def suite():

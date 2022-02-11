@@ -1,7 +1,7 @@
 from typing import Iterable
 import re
 from datetime import date, datetime
-from itertools import chain
+from itertools import chain, islice
 
 DATE_FORMAT = "%Y-%m-%d"
 
@@ -201,6 +201,29 @@ def kwargs_from(obj: object, layout: dict) -> dict:
     }
 
 
+def chunk(seq: Iterable, n: int = 1) -> Iterable:
+    """Read sequence in chunks of a given size
+
+    Args:
+        seq: Input sequence to read in chunks
+        n: Chunk size. If chunk size is less than one, the entire sequence will
+           be returned in a single chunk. If n is one, then individual elements
+           of the sequence will be returned one by one. Otherwise elements will
+           be returned in chunks of size `n`.
+
+    Yields:
+        Chunks of size 'n' or less (if end of the sequence is reached)
+    """
+    if n < 1:
+        yield seq
+    elif n == 1:
+        yield from seq
+    else:
+        it = iter(seq)
+        for first in it:
+            yield chain((first,), islice(it, n - 1))
+
+
 class Sequence(object):
     """Analyse sequence objects
 
@@ -233,3 +256,4 @@ class Sequence(object):
         if self._first is None:
             return None
         return type(self._first)
+
