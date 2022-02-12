@@ -31,7 +31,7 @@ class Database(object):
         self._cursor = None
         self.schema = to_schema(schema) if schema is not None else None
         if db is not None:
-            self.connect(db=db, schema=schema, **kwargs)
+            self.connect(db=db, schema=self.schema, **kwargs)
     
     def __enter__(self) -> "Database":
         return self

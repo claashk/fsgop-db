@@ -1,6 +1,6 @@
 from typing import Optional, List
 import sqlite3
-from .database import Database
+from .database import Database, to_schema
 from .table_info import TableInfo, ColumnInfo, IndexInfo
 
 
@@ -28,10 +28,10 @@ class SqliteDatabase(Database):
             schema: Schema to use.
             **kwargs: Keyword arguments passed verbatim to ``sqlite3.connect``
         """
-        self._db = sqlite3.connect(db, **kwargs)
+        self._db = sqlite3.connect(str(db), **kwargs)
         self._cursor = self._db.cursor()
         self.enable_foreign_key_checks()
-        self.schema = self.get_schema() if schema is None else dict(schema)
+        self.schema = self.get_schema() if schema is None else to_schema(schema)
 
     def enable_foreign_key_checks(self):
         """Enable foreign key checks on this database"""
