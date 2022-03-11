@@ -51,20 +51,48 @@ class SqliteDatabase(Database):
         return [t[0] for t in self._cursor.fetchall()]
 
     def get_index_info(self, name: str) -> List[IndexInfo]:
+        """Get indices for a given table
+
+        Args:
+            name: Table name
+
+        Returns:
+            One IndexInfo object per index
+        """
         indices = []
+        # The rowid column is not listed as an index. Tables without rowid column
+        # are actually created as indices, so pragma_index_info returns something
+        # Thus it is used here as test to check, if rowid exists or not.
+        # See
+        #   https://sqlite.org/forum/forumpost/90670c6dcb5e2125?t=h&unf
+        self._cursor.execute("SELECT count(*) FROM pragma_index_info(:name)",
+                             {"name": name})
+        for c in self._cursor.fetchall():  # -> loop has either one or no items
+            if c[0] == 0:
+                indices.append(IndexInfo(name="PRIMARY",
+                                         is_unique=True,
+                                         is_primary=True))
+
         self._cursor.execute(f"PRAGMA index_list({name})")
         for rec in self._cursor.fetchall():
             indices.append(IndexInfo(name=rec[1],
                                      is_unique=(int(rec[2]) == 1),
                                      is_primary=(rec[3] == "pk")))
         for idx in indices:
-            self._cursor.execute(f"PRAGMA index_xinfo({idx.name})")
-            for rec in self._cursor.fetchall():
-                if int(rec[5]) == 0:  # -> aux column
-                    continue
-                idx.add_column(name=rec[2],
-                               order=-1 if int(rec[3]) == 1 else 1,
-                               sequence=rec[0])
+            if idx.name == "PRIMARY" and idx.is_primary:
+                # -> ROWID index, no index_xinfo
+                self._cursor.execute("SELECT * FROM pragma_table_info(:name) "
+                                     "AS x where x.pk == 1;", {"name": name})
+                for rec in self._cursor.fetchall():
+                    idx.add_column(name=rec[1], order=1, sequence=0)
+            else:
+                self._cursor.execute(f"PRAGMA index_xinfo({idx.name})")
+                for rec in self._cursor.fetchall():
+                    if int(rec[5]) == 0:  # -> aux column
+                        continue
+                    idx.add_column(name=rec[2],
+                                   order=-1 if int(rec[3]) == 1 else 1,
+                                   sequence=rec[0])
         return indices
 
     def get_references(self, table: str, column: str) -> Optional[str]:

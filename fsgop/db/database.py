@@ -350,7 +350,7 @@ class Database(object):
         Raises:
             KeyError if no unique matching record can be found
         """
-        id_col = self.schema[name]._cols[0]
+        id_col = self.schema[name].columns[0]
         return self.unique(name, where=f"{id_col}={int(uid)}")
 
     @classmethod

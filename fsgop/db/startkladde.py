@@ -1,4 +1,7 @@
-from typing import Generator
+#from __future__ import annotations
+#from collections.abc import Iterator
+from typing import Iterator
+
 from .sqlite_db import SqliteDatabase
 from .person import Person, PersonProperty, NameAdapter
 from .utils import kwargs_from, get_value
@@ -485,7 +488,7 @@ schema_v3 = {
 }
 
 
-def iter_persons(db: SqliteDatabase) -> Generator[Person, None, None]:
+def iter_persons(db: SqliteDatabase) -> Iterator[Person]:
     """Get all persons from a startkladde database
 
     Args:
