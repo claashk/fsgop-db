@@ -1,8 +1,23 @@
-from typing import Union, Optional, Type, Iterable
+from typing import Union, Optional, Type, Iterable, Iterator
 from collections import namedtuple
 from inspect import signature
+from datetime import datetime, date, time
 from .utils import to
 from .database import Database
+
+
+def _to(obj, cls):
+    if obj is None:
+        return None
+    if isinstance(obj, cls):
+            return obj
+    if issubclass(cls, datetime):
+        if isinstance(obj, date):
+            return datetime.combine(obj, time(hour=0, minute=0))
+    if issubclass(cls, date):
+        if isinstance(obj, datetime):
+            return obj.date()
+    return cls(obj)
 
 
 class Record(object):
@@ -81,6 +96,16 @@ class Record(object):
         """
         return hash(self.key())
 
+    @property
+    def properties(self) -> Iterator["Record"]:
+        """Iterate over all property records of this record
+
+        Yields:
+            :class:`~fsgop.db.Property` records of this record
+        """
+        for v in self._properties.values():
+            yield from v
+
     def index_tuple(self) -> Optional[tuple]:
         """Get index tuple
 
@@ -103,20 +128,24 @@ class Record(object):
         idx = self.index_tuple()
         return idx if idx is not None else self.uid
 
-    def to(self, t: Type[namedtuple], convert=False) -> namedtuple:
+    def to(self,
+           t: Type[namedtuple],
+           types: Optional[namedtuple] = None) -> namedtuple:
         """Convert to namedtuple
 
         Args:
             t: A namedtuple type
-            convert (bool): If ``True`` field values will be converted to
-                strings. Otherwise, they will be passed as native types.
+            types: Types of each record in t. Must be an instance of t. If not
+               ``None``, each record in t is converted to the associated type
+               in `types`. Defaults to ``None``.
 
         Returns:
             namedtuple derived object of type `t`.
         """
-        if convert:
-            return t._make(self.format(x) for x in t._fields)
-        return t._make(getattr(self, x) for x in t._fields)
+        rec = t._make(getattr(self, x) for x in t._fields)
+        if types is None:
+            return rec
+        return t(*(_to(xi, ti) for xi, ti in zip(rec, types)))
 
     def search_in(self, db: Database, table: str) -> namedtuple:
         """Search this record in the database
