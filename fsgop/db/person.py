@@ -159,6 +159,10 @@ class PersonProperty(Property):
                          name=name,
                          value=value)
 
+    @property
+    def person(self):
+        return self.rec
+
 
 class NameAdapter(object):
     """Replaces fields containing the name by firstname and lastname fields
