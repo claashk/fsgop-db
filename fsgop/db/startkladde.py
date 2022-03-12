@@ -4,7 +4,7 @@ from typing import Iterator
 
 from .sqlite_db import SqliteDatabase
 from .person import Person, PersonProperty, NameAdapter
-from .utils import kwargs_from, get_value
+from .utils import kwargs_from, get_value, set_value
 
 WINCH_LAUNCH = 1
 AEROTOW = 2
@@ -505,6 +505,7 @@ def iter_persons(db: SqliteDatabase) -> Iterator[Person]:
         email = get_value(p.comments, "email")
         if email is not None:
             PersonProperty(name="email", value=email).add_to(person)
+            person.comments = set_value("email", None, person.comments)
         if p.medical_validity is not None:
             PersonProperty(name="medical",
                            value="class 2",

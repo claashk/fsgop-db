@@ -3,7 +3,7 @@
 import unittest
 from pathlib import Path
 
-from fsgop.db import SqliteDatabase
+from fsgop.db import SqliteDatabase, Property
 from fsgop.db.startkladde import schema_v3, iter_persons
 
 
@@ -13,7 +13,7 @@ DATA_DIR = Path(__file__).parent / "startkladde-dump"
 class StartkladdeTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.keep_artifacts = True
+        self.keep_artifacts = False
         self.db_path = DATA_DIR.parent / "test_sk_import.sqlite3"
         #self.db_path = ":memory:"
 
@@ -43,8 +43,9 @@ class StartkladdeTestCase(unittest.TestCase):
                 self.assertEqual(p1.last_name, p2.last_name)
                 self.assertEqual(p1.first_name, p2.first_name)
                 self.assertEqual(p1.id, p2.uid)
-                # TODO: Check how to get values from set
-                #self.assertEqual(p1.medical_validity, p2["medical"])
+
+                med_validity = Property.get_from(p2, "medical").valid_until
+                self.assertEqual(p1.medical_validity, str(med_validity))
 
 
 def suite():
@@ -54,4 +55,4 @@ def suite():
 
 
 if __name__ == '__main__':
-    unittest.TextTestRunner(verbosity=2).run( suite() )
+    unittest.TextTestRunner(verbosity=2).run(suite())
