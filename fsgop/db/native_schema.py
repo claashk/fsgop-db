@@ -93,7 +93,7 @@ schema_v1 = {
              'default_value': None,
              'extra': '',
              'references': None},
-            {'name': 'key',
+            {'name': 'name',
              'dtype': 'varchar(64)',
              'allows_null': False,
              'default_value': None,
@@ -111,10 +111,10 @@ schema_v1 = {
              'is_unique': True,
              'is_primary': True,
              'columns': [('uid', 1)]},
-            {'name': 'person_properties_by_person_key_index',
+            {'name': 'person_properties_by_person_name_index',
              'is_unique': False,
              'is_primary': False,
-             'columns': [('person', 1), ('key', 2), ('valid_until', 3)]}
+             'columns': [('person', 1), ('name', 2), ('valid_until', 3)]}
         ]
     },
     'vehicles': {
@@ -194,7 +194,7 @@ schema_v1 = {
              'default_value': None,
              'extra': '',
              'references': None},
-            {'name': 'key',
+            {'name': 'name',
              'dtype': 'varchar(64)',
              'allows_null': False,
              'default_value': None,
@@ -212,10 +212,10 @@ schema_v1 = {
              'is_unique': True,
              'is_primary': True,
              'columns': [('uid', 1)]},
-            {'name': 'vehicle_properties_by_key_value',
+            {'name': 'vehicle_properties_by_name_value',
              'is_unique': True,
              'is_primary': False,
-             'columns': [('key', 1), ('value', 2), ('valid_until', 3)]}
+             'columns': [('name', 1), ('value', 2), ('valid_until', 3)]}
         ]
     },
     'mission': {
