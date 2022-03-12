@@ -3,6 +3,7 @@
 import unittest
 from fsgop.db import SqliteDatabase, to_schema
 from fsgop.db.startkladde import schema_v3
+from fsgop.db.native_schema import schema_v1 as native_schema
 from pathlib import Path
 
 TEST_DIR = Path(__file__).parent
@@ -11,7 +12,7 @@ DB_PATH = TEST_DIR / "test_sqlite_db.db"
 
 class SqliteDatabaseTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        self.debug = True
+        self.debug = False
         self.path = str(DB_PATH)
         self.schema = to_schema(schema_v3)
 
@@ -59,6 +60,26 @@ class SqliteDatabaseTestCase(unittest.TestCase):
                          schema["flights"].get_column("plane_id").name)
         self.assertEqual("planes(id)",
                          schema["flights"].get_column("plane_id").references)
+
+    def test_native_schema(self):
+        db = self.create_db()
+        db.reset(native_schema)
+        person_type = db.schema["people"].record_type
+        property_type = db.schema["person_properties"].record_type
+
+        p1 = person_type(uid=None,
+                         last_name="Hopper",
+                         first_name="Harry",
+                         title=None,
+                         birthday=None,
+                         birthplace=None,
+                         count=1,
+                         kind=1,
+                         comments=None)
+        db.insert("people", [p1], force=True)
+        self.assertEqual(1, db.count("people"))
+        people = list(db.select("people"))
+
 
 
 def suite():
