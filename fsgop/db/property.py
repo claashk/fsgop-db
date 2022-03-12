@@ -50,7 +50,7 @@ class Property(Record):
     @staticmethod
     def get_from(rec: Record,
                  name: str,
-                 at: datetime) -> Optional["Property"]:
+                 at: Optional[datetime] = None) -> Optional["Property"]:
         """Get a single property by name and date
 
         Args:
@@ -64,7 +64,10 @@ class Property(Record):
         Raises:
             ValueError if more than one matching property is found
         """
-        m = tuple(p for p in rec[name] if p.valid_from <= at < p.valid_until)
+        if at is not None:
+            m = tuple(p for p in rec[name] if p.valid_from <= at < p.valid_until)
+        else:
+            m = tuple(p for p in rec[name])
         if not m:
             return None
         if len(m) > 1:
