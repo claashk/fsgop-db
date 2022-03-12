@@ -47,6 +47,7 @@ class ColumnInfo(object):
         self.references = references
         self.fmt = str(fmt) if fmt is not None else None
         self._parser = None
+        self._native_type = None
         self._set_parser()
 
     @property
@@ -63,6 +64,10 @@ class ColumnInfo(object):
                 return m.group(1), m.group(2)
             raise ValueError(f"Invalid reference string: '{self.references}'")
         return None, None
+
+    @property
+    def native_type(self) -> Type:
+        return self._native_type
 
     def has_auto_increment(self) -> bool:
         """Check if column is incremented automatically
@@ -172,18 +177,26 @@ class ColumnInfo(object):
             return
         s = self.dtype.lower()
         if "int" in s:
+            self._native_type = int
             self._parser = self._int_parser
+            # 'int' is not sufficient to create integer primary keys in sqlite:
+            #  https://www.sqlite.org/lang_createtable.html#rowid
+            self.dtype = "integer"
         elif "real" in s or "floa" in s or "doub" in s:
+            self._native_type = float
             self._parser = self._float_parser
         elif s == "date":
+            self._native_type = date
             self._parser = self._date_parser
             if self.fmt is None:
                 self.fmt = self.default_date_format
         elif s == "datetime":
+            self._native_type = datetime
             self._parser = self._datetime_parser
             if self.fmt is None:
                 self.fmt = self.default_datetime_format
         else:
+            self._native_type = str
             self._parser = self._str_parser
 
         if self.allows_null and self.force_null:
@@ -338,6 +351,15 @@ class TableInfo(object):
             self.reset_record_type()
         return self._record_type
 
+    @property
+    def column_types(self) -> Type[namedtuple]:
+        """Get type of each column
+
+        Returns:
+            named tuple containing the type for each column
+        """
+        return self.record_type(*(c.native_type for c in self._cols))
+
     def get_references(self) -> dict:
         """Get information about references in this table
 
@@ -434,8 +456,11 @@ class TableInfo(object):
             named tuple type for records of this table
         """
         _alias = aliases if aliases is not None else dict()
-        _name = name if name is not None else f"{self.name.capitalize()}Record"
-        return namedtuple(_name, [_alias.get(k, k) for k in self.columns])
+        if name is not None:
+            _n = name
+        else:
+            _n = f"{''.join(s.capitalize() for s in self.name.split('_'))}Record"
+        return namedtuple(_n, [_alias.get(k, k) for k in self.columns])
 
     def reset_record_type(self,
                           name: Optional[str] = None,
