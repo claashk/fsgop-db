@@ -1,3 +1,4 @@
+from .property import Property
 from .person import Person, PersonProperty, NameAdapter
 from .vehicle import Vehicle
 from .table_io import CsvParser
