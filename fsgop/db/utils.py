@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Optional, Union
 import re
 from datetime import date, datetime
 from itertools import chain, islice
@@ -66,7 +66,7 @@ def to(cls, obj, **kwargs):
     return cls(obj)
 
 
-def get_key_value_pattern(key):
+def get_key_value_pattern(key: str) -> Pattern:
     """Get regular expression pattern for key value pairs in comments
 
     Arguments:
@@ -75,7 +75,7 @@ def get_key_value_pattern(key):
     Return:
         re.Pattern: Regular expression pattern matching key
     """
-    return re.compile("".join([f"({key})", r"\s*[=:]\s*'(.+)'"]))
+    return re.compile("".join([f"({key})", r"\s*[=:]\s*'([^']+)';?"]))
 
 
 def iter_attrs(cls, ignore=None):
@@ -130,7 +130,17 @@ def all_attrs_equal(cls1, cls2, ignore=None):
     return True
 
 
-def find_key_value_pair(s, key):
+def find_key_value_pair(s: str,
+                        key: Union[str, Pattern]) -> Optional[object]:
+    """Find key value pair in string
+
+    Args:
+        s: String to search
+        key: Either a regular expression pattern or a key name
+
+    Returns:
+        Match object if key is found, else ``None``
+    """
     if not s:
         return None
 
@@ -138,18 +148,17 @@ def find_key_value_pair(s, key):
     return pattern.search(s)
 
 
-def get_value(s, key):
+def get_value(s: str, key: Union[str, Pattern]) -> Optional[str]:
     """Gets field from comment.
 
     Comment fields are strings of the format '``key`` = ``value``'
 
-    Arguments:
-        s (str): string to search for key value pattern
-        key (str or re.Pattern): Name of key to retrieve or regular
-            expression Pattern instance.
+    Args:
+        s: string to search for key value pattern
+        key: Name of key to retrieve or regular expression Pattern instance.
 
     Return:
-        str: value associated with *key* or ``None`` if *key* does not exist.
+        value associated with *key* or ``None`` if *key* does not exist.
     """
     match = find_key_value_pair(s, key)
     if not match:
@@ -157,29 +166,35 @@ def get_value(s, key):
     return match.group(2)
 
 
-def set_value(key, value, s=""):
+def set_value(key: str, value: Optional[str], s: str = "") -> str:
     """Set key value pair value.
 
     Comment fields are strings of the format '``key`` = ``value``'
 
-    Arguments:
-        key (str): Name of key to set
-        value (str): Value string. If ``None``, the key value pair is
-           removed, if it exists.
-        s (str): String with additional key value pairs
+    Args:
+        key: Name of key to set
+        value: Value string. If ``None``, the key value pair is removed,
+            if it exists.
+        s: String with additional key value pairs
+
+    Returns:
+        String with updated key value pair
     """
     if not key:
         raise ValueError("Key must not be empty")
 
     if not s:
-        return f"{key}='{value}'"
+        return f"{key}='{value}'" if value is not None else ""
 
     match = find_key_value_pair(s, key)
     if match:
         # key exists -> replace
-        return "".join([s[0:match.start(2)], f"{value}", s[match.end(2):]])
+        if value is not None:
+            return "".join([s[0:match.start(2)], f"{value}", s[match.end(2):]])
+        else:
+            return "".join([s[0:match.start()], s[match.end():]]).strip()
     else:
-        return "; ".join([s, f"{key}='{value}'"])
+        return "; ".join([s, f"{key}='{value}'"]) if value is not None else s
 
 
 def kwargs_from(obj: object, layout: dict) -> dict:

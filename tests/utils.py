@@ -93,6 +93,10 @@ class UtilsTestCase(unittest.TestCase):
                          set_value("key2", "another value", "key1='a value'"))
         self.assertEqual("key='yes, another value'",
                          set_value("key", "yes, another value", "key='a value'"))
+        self.assertEqual("key2= 'value two'",
+                         set_value("key1",
+                                   None,
+                                   "key1 = 'value 1'; key2= 'value two'"))
 
     def test_chunk(self):
         for i, packet in enumerate(chunk(range(50), 10)):
