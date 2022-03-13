@@ -4,13 +4,14 @@ from .record import Record, to
 from .property import Property
 
 SINGLE_ENGINE_PISTON = 1
-ULTRA_LIGHT = 2
+ULTRALIGHT = 2
 TOURING_MOTOR_GLIDER = 3
 MOTOR_GLIDER = 4
 GLIDER = 5
 
 WINCH = 11
 CAR = 12
+UNDEFINED = 9999  # use this value only to indicate errors/warnings
 
 
 class Vehicle(Record):
@@ -44,7 +45,7 @@ class Vehicle(Record):
         self.category = to(int, category, default=None)
         self.comments = to(str, comments, default=None)
 
-        if registration is not None:
+        if registration:
             if isinstance(registration, str):
                 reg = VehicleProperty(value=registration)
             else:
@@ -80,4 +81,8 @@ class VehicleProperty(Property):
                          valid_until=valid_until,
                          name=name,
                          value=value)
+
+    @property
+    def vehicle(self):
+        return self.rec
 
