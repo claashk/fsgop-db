@@ -218,7 +218,7 @@ schema_v1 = {
              'columns': [('name', 1), ('value', 2), ('valid_until', 3)]}
         ]
     },
-    'mission': {
+    'missions': {
         'columns': [
             {'name': 'uid',
              'dtype': 'int',
