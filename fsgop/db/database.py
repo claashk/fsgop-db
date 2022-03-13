@@ -334,7 +334,7 @@ class Database(object):
             retval = result
 
         if retval is None:
-            raise KeyError(f"Found no result matching '{where}'")
+            raise KeyError(f"Found no result matching '{where}' (with {kwargs})")
         return retval
 
     def unique_id(self, name: str, uid: int) -> NamedTuple:

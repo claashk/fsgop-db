@@ -74,8 +74,8 @@ class Mission(Record):
             charge_person: Optional[Union[int, Person]] = None,
             comments=None) -> None:
         super().__init__(uid=uid)
-        self.vehicle = to(Vehicle, vehicle)
-        self.pilot = to(Person, pilot)
+        self.vehicle = to(Vehicle, vehicle, default=None)
+        self.pilot = to(Person, pilot, default=None)
         self.copilot = to(Person, copilot, default=None)
         self.passenger1 = to(Person, passenger1, default=None)
         self.passenger2 = to(Person, passenger2, default=None)
@@ -83,18 +83,17 @@ class Mission(Record):
         self.passenger4 = to(Person, passenger4, default=None)
         self.category = to(int, category, default=NORMAL_FLIGHT)
         self.num_stints = to(int, num_stints, default=1)
-        self.launch = to(Mission, launch)
-        self.origin = to(str, origin)
-        self.begin = to(datetime, begin)
-        self.destination = to(str, destination)
+        self.launch = to(Mission, launch, default=self)
+        self.origin = to(str, origin, default=None)
+        self.begin = to(datetime, begin, default=None)
+        self.destination = to(str, destination, default=None)
         self.end = to(datetime, end, default=None)
         self.off_block_utc = to(datetime, off_block_utc, default=None)
         self.on_block_utc = to(datetime, on_block_utc, default=None)
         hrs = []
         for x in (engine_hours_begin, engine_hours_end):
             dt = to(timedelta, x, default=None)
-            if dt is not None:
-                hrs.append(dt.total_seconds() / 3600.)
+            hrs.append(dt.total_seconds() / 3600. if dt is not None else None)
         self.engine_hours_begin, self.engine_hours_end = hrs
         self.charge_person = to(Person, charge_person, default=self.pilot)
         self.comments = to(str, comments, default=None)
@@ -113,7 +112,7 @@ class Mission(Record):
                 self.passenger1,
                 self.passenger2,
                 self.passenger3,
-                self.passenger4} - {Person()}
+                self.passenger4} - {Person(), None}
         
     def duration(self) -> timedelta:
         """Returns the duration of the journey
@@ -176,11 +175,11 @@ class Mission(Record):
             if kwargs:
                 retval[p] = kwargs
 
-        kwargs = Vehicle.layout(prefix="vehicle", allow=allow)
+        kwargs = Vehicle.layout(prefix="vehicle_", allow=allow)
         if kwargs:
             retval["vehicle"] = kwargs
 
-        if not prefix.endswith("launch"):
+        if not prefix.endswith("launch_"):
             kwargs = cls.layout(prefix=f"{prefix}launch_", allow=allow)
             if kwargs:
                 retval["launch"] = kwargs

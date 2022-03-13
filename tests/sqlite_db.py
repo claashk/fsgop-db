@@ -81,7 +81,6 @@ class SqliteDatabaseTestCase(unittest.TestCase):
         people = list(db.select("people"))
 
 
-
 def suite():
     """Get Test suite object
     """
@@ -89,4 +88,4 @@ def suite():
 
 
 if __name__ == '__main__':
-    unittest.TextTestRunner(verbosity=2).run( suite() )
+    unittest.TextTestRunner(verbosity=2).run(suite())
