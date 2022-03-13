@@ -4,6 +4,8 @@ from datetime import date, datetime
 from itertools import chain, islice
 
 DATE_FORMAT = "%Y-%m-%d"
+TIME_FORMAT = "%H:%M:%S"
+DATE_TIME_FORMAT = " ".join((DATE_FORMAT, TIME_FORMAT))
 
 Pattern = type(re.compile('', 0))
 
@@ -19,11 +21,15 @@ REPLACEMENTS = {
 ASCII = str.maketrans(REPLACEMENTS)
 
 
-def from_str(string, cls):
+def from_str(string, cls, **kwargs):
     if issubclass(cls, str):
         return string
+    if issubclass(cls, datetime):
+        return datetime.strptime(string,
+                                 kwargs.get("datetime_fmt", DATE_TIME_FORMAT))
     if issubclass(cls, date):
-        return datetime.strptime(string, DATE_FORMAT).date()
+        return datetime.strptime(string,
+                                 kwargs.get("date_fmt", DATE_FORMAT)).date()
     return cls(string)
 
 
@@ -46,7 +52,7 @@ def to(cls, obj, **kwargs):
         if isinstance(obj, cls):
             return obj
         if isinstance(obj, str):
-            return from_str(obj, cls)
+            return from_str(obj, cls, **kwargs)
     except TypeError:
         # cls is not a class -> assume it is callable
         pass
