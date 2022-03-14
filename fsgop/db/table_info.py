@@ -244,6 +244,16 @@ class IndexInfo(object):
     def __ge__(self, other: "IndexInfo") -> bool:
         return not (self < other)
 
+    @property
+    def is_id(self) -> bool:
+        """Return True if and only if this index is the unique ID index"""
+        return self.is_primary and len(self._cols) == 1 and self._cols[0][1] == 1
+
+    @property
+    def columns(self) -> tuple:
+        """Get tuple of all columns in this index"""
+        return tuple(c[0] for c in self._cols)
+
     def add_column(self,
                    name: str,
                    order: int = 1,
@@ -423,6 +433,18 @@ class TableInfo(object):
             if idx.is_primary:
                 return f"PRIMARY KEY ({idx.key_format()})"
         return ""
+
+    @property
+    def id_column(self) -> Optional[str]:
+        """Get name of ID column
+
+        Return:
+            Name of ID column, None if no unique ID column exists
+        """
+        for name, idx in self.indices():
+            if idx.is_id:
+                return idx.columns[0]
+        return None
 
     def get_column(self, name: str) -> ColumnInfo:
         """Get column with a given name

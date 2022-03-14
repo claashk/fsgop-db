@@ -90,6 +90,14 @@ class TableInfoTestCase(unittest.TestCase):
         t = TableInfo(columns=self.get_columns(), indices=self.get_indices())
         self.assertEqual("PRIMARY KEY (col1 DESC,col2)", t.primary_key())
 
+    def test_id_column(self):
+        schema = self.get_schema()
+        for table in ("people", "flights", "launch_methods"):
+            self.assertEqual("id", schema[table].id_column)
+
+        info = TableInfo(columns=self.get_columns(), indices=self.get_indices())
+        self.assertIsNone(info.id_column)
+
     def test_import_mysql_dump(self):
         schema = self.get_schema()
         recs = list(schema["people"].read_mysql_dump(
