@@ -76,7 +76,7 @@ class SqliteDatabaseTestCase(unittest.TestCase):
                          comments=None)
 
         property_type = db.schema["person_properties"].record_type
-        self.assertEqual(0, db.max_id("people"))
+        self.assertEqual(-1, db.max_id("people"))
         db.insert("people", [p1], force=True)
         self.assertEqual(1, db.count("people"))
         self.assertEqual(1, db.max_id("people"))

@@ -360,7 +360,7 @@ class Database(object):
              name: Table name
 
         Return:
-            Maximum ID used in table 'name'
+            Maximum ID used in table 'name', -1 if no records are used
         """
         col = self.schema[name].id_column
         if col is None:
@@ -368,7 +368,7 @@ class Database(object):
         # query is safe here, since an invalid name will raise in schema lookup
         self._cursor.execute(f"SELECT MAX({col}) from {name}")
         for rec in self._cursor.fetchall():
-            return 0 if rec[0] is None else int(rec[0])
+            return -1 if rec[0] is None else int(rec[0])
         raise ValueError("Unable to retrieve maximum of column")
 
     @classmethod
