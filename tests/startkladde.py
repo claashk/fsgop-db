@@ -2,6 +2,7 @@
 
 import unittest
 from pathlib import Path
+from datetime import timedelta
 
 from fsgop.db import SqliteDatabase, Property
 from fsgop.db.startkladde import schema_v3, iter_persons
@@ -45,6 +46,7 @@ class StartkladdeTestCase(unittest.TestCase):
                 self.assertEqual(p1.id, p2.uid)
 
                 med_validity = Property.get_from(p2, "medical").valid_until
+                med_validity = (med_validity - timedelta(hours=24)).date()
                 self.assertEqual(p1.medical_validity, str(med_validity))
 
 

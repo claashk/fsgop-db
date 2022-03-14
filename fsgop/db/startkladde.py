@@ -1,21 +1,31 @@
 #from __future__ import annotations
 #from collections.abc import Iterator
 from typing import Iterator
+from datetime import datetime, timedelta
 
 from .sqlite_db import SqliteDatabase
 from .person import Person, PersonProperty, NameAdapter
+from .vehicle import Vehicle, VehicleProperty
+from .vehicle import SINGLE_ENGINE_PISTON, MOTOR_GLIDER, GLIDER, ULTRALIGHT
+from .vehicle import WINCH, UNDEFINED
+from .mission import Mission
+from .mission import NORMAL_FLIGHT, GUEST_FLIGHT, ONE_SEATED_TRAINING
+from .mission import TWO_SEATED_TRAINING, WINCH_OPERATION, AEROTOW
+
 from .utils import kwargs_from, get_value, set_value
 
-WINCH_LAUNCH = 1
-AEROTOW = 2
-SELF_LAUNCH = 3
-
+LAUNCH_TYPE_WINCH = "winch"
+LAUNCH_TYPE_AEROTOW = "airtow"
+LAUNCH_TYPE_SELF = "self"
+LAUNCH_TYPE_OTHER = "other"
 
 LOG_STRINGS = {
-    WINCH_LAUNCH: "W",
-    AEROTOW: "FS",
-    SELF_LAUNCH: "ES"
+    LAUNCH_TYPE_WINCH: "W",
+    LAUNCH_TYPE_AEROTOW: "FS",
+    LAUNCH_TYPE_SELF: "ES"
 }
+
+DATE_FORMAT = "%Y-%m-%d"
 
 
 schema_v3 = {
@@ -489,27 +499,205 @@ schema_v3 = {
 
 
 def iter_persons(db: SqliteDatabase) -> Iterator[Person]:
-    """Get all persons from a startkladde database
+    """Get persons from a startkladde database
 
     Args:
-        db: Startkladde database
+        db: Database us startkladde schema
 
     Yields:
-        One native Person instance per person found in db
+        One :class:Person instance per person found in db
     """
     rectype = db.schema["people"].create_record_type(aliases={"id": "uid"})
     people, _type = NameAdapter.apply(db.select("people", rectype=rectype))
     layout = Person.layout(allow=_type._fields)
-    for p in people:
-        person = Person(**kwargs_from(p, layout=layout))
-        email = get_value(p.comments, "email")
+    for rec in people:
+        person = Person(**kwargs_from(rec, layout=layout))
+        email = get_value(rec.comments, "email")
         if email is not None:
             PersonProperty(name="email", value=email).add_to(person)
             person.comments = set_value("email", None, person.comments)
-        if p.medical_validity is not None:
+        if rec.medical_validity is not None:
+            t = datetime.strptime(rec.medical_validity, DATE_FORMAT)
+            t += timedelta(hours=24)  # valid on expiration date
             PersonProperty(name="medical",
                            value="class 2",
-                           valid_until=p.medical_validity).add_to(person)
+                           valid_until=t).add_to(person)
         yield person
 
+
+def iter_launch_methods(db: SqliteDatabase) -> Iterator[Vehicle]:
+    """Get launch methods from startkladde database
+
+    This will return each launch method as is, i.e. without modifying its
+    uid, despite the fact, that uid clashes will occur, if vehicles from launch
+    methods are mixed with those from planes.
+
+    Launch methods using type "other" are mapped to the native UNDEFINED value,
+    since it should generally be considered an error, if the launch method type
+    cannot be specified. Self launch will be mapped to category None, since
+    these have no real value in the native data model.
+
+    Args:
+        db: Database using the startkladde schema
+
+    Yields:
+        One :class:`~fsgop.db.Vehicle` instance per launch method
+    """
+    aliases = {
+        "id": "uid",
+        "towplane_registration": "registration",
+        "name": "model"
+    }
+    categories = {
+        LAUNCH_TYPE_WINCH: WINCH,
+        LAUNCH_TYPE_AEROTOW: SINGLE_ENGINE_PISTON,
+        LAUNCH_TYPE_SELF: None,
+        LAUNCH_TYPE_OTHER: UNDEFINED
+    }
+    method = db.schema["launch_methods"].create_record_type(aliases=aliases)
+    layout = Vehicle.layout(allow=method._fields)
+    for rec in db.select("launch_methods", rectype=method):
+        vehicle = Vehicle(**kwargs_from(rec, layout=layout))
+        vehicle.manufacturer = "UNDEFINED"
+        vehicle.serial_number = f"sk-launch-method-{rec.uid}"
+        vehicle.category = categories[rec.type]
+        yield vehicle
+
+
+def iter_planes(db: SqliteDatabase) -> Iterator[Vehicle]:
+    """Get planes from startkladde database
+
+    Args:
+        db: Database using the startkladde schema
+
+    Yields:
+        One :class:`~fsgop.db.Vehicle` instance per plane in db
+    """
+    categories = {
+        "glider": GLIDER,
+        "airplane": SINGLE_ENGINE_PISTON,
+        "ultralight": ULTRALIGHT,
+        "motorglider": MOTOR_GLIDER
+    }
+    aliases = {"id": "uid", "type": "model"}
+    plane = db.schema["planes"].create_record_type(aliases=aliases)
+    layout = Vehicle.layout(allow=set(plane._fields) - {"category"})
+    for rec in db.select("planes", rectype=plane):
+        vehicle = Vehicle(**kwargs_from(rec, layout=layout))
+        vehicle.manufacturer = "UNDEFINED"
+        vehicle.serial_number = f"sk-plane-{rec.uid}"
+        vehicle.category = categories[rec.category]
+        if rec.club is not None:
+            VehicleProperty(name="operator", value=rec.club).add_to(vehicle)
+        yield vehicle
+
+
+def iter_vehicles(db: SqliteDatabase) -> Iterator[Vehicle]:
+    """Get all vehicles from startkladde database
+
+    This will reset the uid of each launch method to None to avoid conflicts with
+    plane uids. The original uid can be retrieved from the serial number.
+
+    Args:
+        db: Database using the startkladde schema
+
+    Yields:
+        One :class:`~fsgop.db.Vehicle` instance per plane and launch method
+    """
+    yield from iter_planes(db)
+    for vehicle in iter_launch_methods(db):
+        # launch method uids cannot be kept, because they are not unique
+        vehicle.uid = None
+        yield vehicle
+
+
+def iter_missions(db: SqliteDatabase) -> Iterator[Mission]:
+    aliases = {
+        "id": "uid",
+        "plane_id": "vehicle_uid",
+        "pilot_id": "pilot_uid",
+        "copilot_id": "copilot_uid",
+        "num_landings": "num_stints",
+        "departure_time": "begin",
+        "landing_time": "end",
+        "departure_location": "origin",
+        "landing_location": "destination"
+    }
+    categories = {
+        "normal": NORMAL_FLIGHT,
+        "training_1": ONE_SEATED_TRAINING,
+        "training_2": TWO_SEATED_TRAINING,
+        "guest_external": GUEST_FLIGHT,
+        "guest_private": GUEST_FLIGHT
+    }
+    rectype = db.schema["flights"].create_record_type(aliases=aliases)
+    lm_type = db.schema["launch_methods"].create_record_type(aliases={"id": "uid"})
+    flights, _type = NameAdapter.apply(db.select("flights",
+                                                 order="departure_time",
+                                                 rectype=rectype))
+    layout = Mission.layout(allow=_type._fields)
+
+    next_uid = db.max_id("flights") + 1
+    winches = dict()  # winch cache
+    for rec in flights:
+        mission = Mission(**kwargs_from(rec, layout=layout))
+        mission.category = categories[rec.type]
+        lm = db.unique("launch_methods",
+                       where="id=:uid",
+                       rectype=lm_type,
+                       uid=rec.launch_method_id)
+        if lm.type == LAUNCH_TYPE_WINCH:
+            # We use a single winch mission per launch method here -> simple
+            try:
+               w = winches[lm.uid]
+            except KeyError:
+               winch = Vehicle(manufacturer="UNDEFINED",
+                               serial_number=f"sk-launch-method-{lm.uid}",
+                               category=WINCH)
+               w = Mission(uid=next_uid,
+                           vehicle=winch,
+                           pilot=None,
+                           category=WINCH_OPERATION,
+                           num_stints=None,
+                           launch=next_uid,
+                           origin=rec.origin,
+                           begin=None,
+                           destination=rec.origin,  # winch does not move
+                           end=None,
+                           charge_person=rec.pilot_uid,
+                           comments="Auto-generated winch mission for "
+                                    f"launch method {lm.uid}")
+               winches[lm.uid] = w
+               next_uid += 1
+               yield w
+
+            mission.launch = w
+        elif lm.type == LAUNCH_TYPE_AEROTOW:
+            # create aerotow for this flight
+            if rec.towplane_id is not None:
+                towplane = int(rec.towplane_id)
+            else:
+                towplane = Vehicle(manufacturer="UNDEFINED",
+                                   serial_number=f"sk-launch-method-{lm.uid}")
+            launch = Mission(
+                uid=next_uid,
+                vehicle=towplane,
+                pilot=rec.towpilot_id,
+                category=AEROTOW,
+                num_stints=rec.num_stints,
+                launch=next_uid,
+                origin=rec.origin,
+                begin=rec.begin,
+                destination=rec.towflight_landing_location,
+                end=rec.towflight_landing_time,
+                charge_person=rec.pilot_uid,
+                comments=f"Auto-generated aerotow for flight {mission.uid}")
+            mission.launch = launch
+            next_uid += 1
+            yield launch
+        elif lm.type == LAUNCH_TYPE_SELF:
+            mission.launch = mission.uid
+        else:
+            raise ValueError(f"Invalid Launch Type: {lm.type}")
+        yield mission
 
