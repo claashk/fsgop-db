@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 from io import StringIO
 
-from fsgop.db import Controller, SqliteDatabase
+from fsgop.db import Repository, SqliteDatabase
 from fsgop.db.startkladde import schema_v3 as sk_schema
 
 
@@ -13,10 +13,10 @@ DATA_DIR = Path(__file__).parent / "startkladde-dump"
 logger = logging.getLogger()
 
 
-class ControllerTestCase(unittest.TestCase):
+class RepositoryTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.keep_artifacts = True
-        self.db_path = DATA_DIR.parent / "controller_test.sqlite3"
+        self.db_path = DATA_DIR.parent / "repo_test.sqlite3"
         self.sk_path = self.db_path.parent / "native_sk_db.sqlite3"
         self.out = StringIO()
         self.stream_handler = logging.StreamHandler(self.out)
@@ -38,7 +38,7 @@ class ControllerTestCase(unittest.TestCase):
                                       db=str(self.sk_path)) as db:
             pass
 
-        with Controller.from_startkladde(self.sk_path, self.db_path) as ctrl:
+        with Repository.from_startkladde(self.sk_path, self.db_path) as ctrl:
             pass
         out = self.out.getvalue()
         #print("Logger Output:", out)
@@ -52,7 +52,7 @@ class ControllerTestCase(unittest.TestCase):
 def suite():
     """Get Test suite object
     """
-    return unittest.TestLoader().loadTestsFromTestCase(ControllerTestCase)
+    return unittest.TestLoader().loadTestsFromTestCase(RepositoryTestCase)
 
 
 if __name__ == '__main__':

@@ -3,37 +3,28 @@ from typing import List, NamedTuple, Type, Iterable, Union
 from pathlib import Path
 
 from .person import NameAdapter, Person, PersonProperty
+from .vehicle import Vehicle, VehicleProperty
 from .mission import Mission
 from .utils import kwargs_from
 from .sqlite_db import SqliteDatabase
 from .utils import Sequence, chunk
 from .record import Record
-from .vehicle import Vehicle
 from . import startkladde as sk
 from . native_schema import schema_v1
 
 logger = logging.getLogger(__name__)
 
 
-def import_flights(records: List[NamedTuple]):
-    if not records:
-        return []
+class Repository(object):
+    """Repository implementation
 
-    recs, _type = NameAdapter.apply(records, rectype=type(records[0]))
-    layout = Mission.layout(allow=_type._fields)
+    The repository is an intermediate layer between database and application (
+    controllers, views). It wraps a database with a given schema and allows I/O
+    operations using the native datamodel (Person, Vehicle, Mission). This
+    is the main distinction to the database, which works data model agnostic and
+    uses only tuples and the native schema for I/O operations.
 
-    for rec in recs:
-        yield Mission(**kwargs_from(rec, layout=layout))
-
-
-class Controller(object):
-    """Database controller
-
-    The database controller provides the main API for external applications.
-    It uses a database with native schema as data storage and adds methods to
-    import and manipulate this data.
-
-    The controller can be used as context manager.
+    The repository can be used as context manager.
 
     Args:
         db: database
@@ -41,13 +32,15 @@ class Controller(object):
     native_types = {
         "people": Person,
         "vehicles": Vehicle,
-        "person_properties": PersonProperty
+        "person_properties": PersonProperty,
+        "vehicle_properties": VehicleProperty,
+        "missions": Mission
     }
 
     def __init__(self, db) -> None:
         self._db = db
 
-    def __enter__(self) -> "Controller":
+    def __enter__(self) -> "Repository":
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -116,8 +109,12 @@ class Controller(object):
     @classmethod
     def from_startkladde(cls,
                          path: Union[str, Path],
-                         db: Union[str, Path]) -> "Controller":
-        """Create a new database from a startkladde instance
+                         db: Union[str, Path]) -> "Repository":
+        """Create a new repository from a startkladde instance
+
+        This constructor converts all data from the startkladde database into
+        the native data model and then adds it to a new database, which acts as
+        storage for the newly created repository.
 
         Args:
             path: Path to the startkladde database file
@@ -131,13 +128,15 @@ class Controller(object):
             try:
                 _db = SqliteDatabase(db=db, schema=schema_v1)
                 _db.reset()
-                ctl = cls(db=_db)
-                ctl.insert(sk.iter_persons(src), force=True)
-                ctl.commit()
+                repo = cls(db=_db)
+                repo.insert(sk.iter_persons(src), force=True)
+                repo.insert(sk.iter_vehicles(src), force=True)
+                repo.insert(sk.iter_missions(src), force=True)
+                repo.commit()  # without this, nothing gets written!
             except:
                 try:
                     Path(db).unlink()
                 except FileNotFoundError:
                     pass
                 raise
-        return ctl
+        return repo
