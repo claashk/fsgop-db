@@ -353,6 +353,24 @@ class Database(object):
         id_col = self.schema[name].columns[0]
         return self.unique(name, where=f"{id_col}={int(uid)}")
 
+    def max_id(self, name: str) -> int:
+        """Get current maximum ID (beware of race conditions)
+
+        Args:
+             name: Table name
+
+        Return:
+            Maximum ID used in table 'name'
+        """
+        col = self.schema[name].id_column
+        if col is None:
+            raise ValueError(f"Table {name} has no unique ID column")
+        # query is safe here, since an invalid name will raise in schema lookup
+        self._cursor.execute(f"SELECT MAX({col}) from {name}")
+        for rec in self._cursor.fetchall():
+            return 0 if rec[0] is None else int(rec[0])
+        raise ValueError("Unable to retrieve maximum of column")
+
     @classmethod
     def var(cls, name: str) -> str:
         """Get variable as named placeholder

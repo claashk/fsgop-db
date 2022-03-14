@@ -65,8 +65,6 @@ class SqliteDatabaseTestCase(unittest.TestCase):
         db = self.create_db()
         db.reset(native_schema)
         person_type = db.schema["people"].record_type
-        property_type = db.schema["person_properties"].record_type
-
         p1 = person_type(uid=None,
                          last_name="Hopper",
                          first_name="Harry",
@@ -76,8 +74,12 @@ class SqliteDatabaseTestCase(unittest.TestCase):
                          count=1,
                          kind=1,
                          comments=None)
+
+        property_type = db.schema["person_properties"].record_type
+        self.assertEqual(0, db.max_id("people"))
         db.insert("people", [p1], force=True)
         self.assertEqual(1, db.count("people"))
+        self.assertEqual(1, db.max_id("people"))
         people = list(db.select("people"))
 
 
