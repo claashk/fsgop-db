@@ -39,18 +39,19 @@ class MysqlDatabase(Database):
             password: Password for user. Defaults to ``None``.
         """
         self._db = mysql.connect(host, user, password, db)
-        self._cursor = self._db.cursor()
         self.enable_foreign_key_checks()
         if self.schema is None:
             self.schema = self.get_schema()
 
     def enable_foreign_key_checks(self):
         """Enable foreign key checks on this database"""
-        self._cursor.execute("SET foreign_key_checks = 1")
+        cursor = self._db.cursor()
+        cursor.execute("SET foreign_key_checks = 1")
 
     def disable_foreign_key_checks(self):
         """Disable foreign key checks on this database"""
-        self._cursor.execute("SET foreign_key_checks = 0")
+        cursor = self._db.cursor()
+        cursor.execute("SET foreign_key_checks = 0")
 
     def list_tables(self) -> List[str]:
         """Get list of table names
@@ -58,8 +59,9 @@ class MysqlDatabase(Database):
         Returns:
             List of strings containing the table names
         """
-        self._cursor.execute("SHOW TABLES")
-        return [t[0] for t in self._cursor.fetchall()]
+        cursor = self._db.cursor()
+        cursor.execute("SHOW TABLES")
+        return [t[0] for t in cursor]
 
     def get_table_info(self, name: str) -> TableInfo:
         """Get information about a table
@@ -71,8 +73,9 @@ class MysqlDatabase(Database):
             Table information
         """
         table = TableInfo(name=name, indices=self.get_index_info(name))
-        self._cursor.execute(f"DESCRIBE `{name}`")
-        for rec in self._cursor.fetchall():
+        cursor = self._db.cursor()
+        cursor.execute(f"DESCRIBE `{name}`")
+        for rec in cursor:
             table.add_column(ColumnInfo(name=rec[0],
                                         dtype=rec[1],
                                         allows_null=(rec[2].upper() == "YES"),
@@ -85,15 +88,16 @@ class MysqlDatabase(Database):
     def get_references(self, table: str, column: str) -> Optional[str]:
         """Get column referenced by column in another table
         """
-        self._cursor.execute("SELECT database()")
-        db_name = "".join(rec[0] for rec in self._cursor.fetchall())
-        self._cursor.execute("SELECT REFERENCED_TABLE_NAME, "
-                             "REFERENCED_COLUMN_NAME "
-                             "FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE "
-                             f"WHERE REFERENCED_TABLE_SCHEMA = '{db_name}' "
-                             f"AND TABLE_NAME = '{table}' "
-                             f"AND COLUMN_NAME = '{column}'")
-        ref = list(self._cursor.fetchall())
+        cursor = self._db.cursor()
+        cursor.execute("SELECT database()")
+        db_name = "".join(rec[0] for rec in cursor)
+        cursor.execute("SELECT REFERENCED_TABLE_NAME, "
+                       "REFERENCED_COLUMN_NAME "
+                       "FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE "
+                       f"WHERE REFERENCED_TABLE_SCHEMA = '{db_name}' "
+                       f"AND TABLE_NAME = '{table}' "
+                       f"AND COLUMN_NAME = '{column}'")
+        ref = list(cursor)
         if not ref:
             return None
 
@@ -113,8 +117,9 @@ class MysqlDatabase(Database):
         """
         order = {"A": 1, "D": -1, "NULL": 0}
         indices = dict()
-        self._cursor.execute(f"SHOW INDEX FROM `{name}`")
-        for rec in self._cursor.fetchall():
+        cursor = self._db.cursor()
+        cursor.execute(f"SHOW INDEX FROM `{name}`")
+        for rec in cursor:
             idx = indices.setdefault(
                 rec[2],
                 IndexInfo(name=rec[2],

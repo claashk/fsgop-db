@@ -29,17 +29,18 @@ class SqliteDatabase(Database):
             **kwargs: Keyword arguments passed verbatim to ``sqlite3.connect``
         """
         self._db = sqlite3.connect(str(db), **kwargs)
-        self._cursor = self._db.cursor()
         self.enable_foreign_key_checks()
         self.schema = self.get_schema() if schema is None else to_schema(schema)
 
     def enable_foreign_key_checks(self):
         """Enable foreign key checks on this database"""
-        self._cursor.execute("PRAGMA foreign_keys = ON")
+        cursor = self._db.cursor()
+        cursor.execute("PRAGMA foreign_keys = ON")
 
     def disable_foreign_key_checks(self):
         """Disable foreign key checks on this database"""
-        self._cursor.execute("PRAGMA foreign_keys = OFF")
+        cursor = self._db.cursor()
+        cursor.execute("PRAGMA foreign_keys = OFF")
 
     def list_tables(self) -> List[str]:
         """Get list of table names
@@ -47,8 +48,9 @@ class SqliteDatabase(Database):
         Returns:
             List of strings containing the table names
         """
-        self._cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        return [t[0] for t in self._cursor.fetchall()]
+        cursor = self._db.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        return [t[0] for t in cursor]
 
     def get_index_info(self, name: str) -> List[IndexInfo]:
         """Get indices for a given table
@@ -65,29 +67,30 @@ class SqliteDatabase(Database):
         # Thus it is used here as test to check, if rowid exists or not.
         # See
         #   https://sqlite.org/forum/forumpost/90670c6dcb5e2125?t=h&unf
-        self._cursor.execute("SELECT count(*) FROM pragma_index_info(:name)",
-                             {"name": name})
-        for c in self._cursor.fetchall():  # -> loop has either one or no items
+        cursor = self._db.cursor()
+        cursor.execute("SELECT count(*) FROM pragma_index_info(:name)",
+                       {"name": name})
+        for c in cursor:  # -> loop has either one or no items
             if c[0] == 0:
                 indices.append(IndexInfo(name="PRIMARY",
                                          is_unique=True,
                                          is_primary=True))
 
-        self._cursor.execute(f"PRAGMA index_list({name})")
-        for rec in self._cursor.fetchall():
+        cursor.execute(f"PRAGMA index_list({name})")
+        for rec in cursor:
             indices.append(IndexInfo(name=rec[1],
                                      is_unique=(int(rec[2]) == 1),
                                      is_primary=(rec[3] == "pk")))
         for idx in indices:
             if idx.name == "PRIMARY" and idx.is_primary:
                 # -> ROWID index, no index_xinfo
-                self._cursor.execute("SELECT * FROM pragma_table_info(:name) "
-                                     "AS x where x.pk == 1;", {"name": name})
-                for rec in self._cursor.fetchall():
+                cursor.execute("SELECT * FROM pragma_table_info(:name) "
+                               "AS x where x.pk == 1;", {"name": name})
+                for rec in cursor.fetchall():
                     idx.add_column(name=rec[1], order=1, sequence=0)
             else:
-                self._cursor.execute(f"PRAGMA index_xinfo({idx.name})")
-                for rec in self._cursor.fetchall():
+                cursor.execute(f"PRAGMA index_xinfo({idx.name})")
+                for rec in cursor.fetchall():
                     if int(rec[5]) == 0:  # -> aux column
                         continue
                     idx.add_column(name=rec[2],
@@ -106,15 +109,13 @@ class SqliteDatabase(Database):
             table name and column name referenced by the specified column.
             ``None`` if specified column does not refer to any other column.
         """
-        self._cursor.execute(f"PRAGMA foreign_key_list('{table}')")
-
-        ref = [(r[2], r[4]) for r in self._cursor.fetchall() if r[3] == column]
+        cursor = self._db.cursor()
+        cursor.execute(f"PRAGMA foreign_key_list('{table}')")
+        ref = [(r[2], r[4]) for r in cursor if r[3] == column]
         if not ref:
             return None
-
         if len(ref) > 1:
             raise RuntimeError(f"Expected at most one column, found {len(ref)}")
-
         return f"{ref[0][0]}({ref[0][1]})"
 
     def get_table_info(self, name: str) -> TableInfo:
@@ -127,8 +128,9 @@ class SqliteDatabase(Database):
             TableInfo object
         """
         table = TableInfo(name=name, indices=self.get_index_info(name))
-        self._cursor.execute(f"PRAGMA table_info('{name}')")
-        for rec in self._cursor.fetchall():
+        cursor = self._db.cursor()
+        cursor.execute(f"PRAGMA table_info('{name}')")
+        for rec in cursor:
             default_value = str(rec[4])
             table.add_column(ColumnInfo(
                 name=rec[1],

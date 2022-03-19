@@ -28,7 +28,6 @@ class Database(object):
                  schema: Optional[dict] = None,
                  **kwargs) -> None:
         self._db = None
-        self._cursor = None
         self.schema = to_schema(schema) if schema is not None else None
         if db is not None:
             self.connect(db=db, schema=self.schema, **kwargs)
@@ -116,9 +115,10 @@ class Database(object):
 
         tables = self.list_tables()
         if tables:
+            cursor = self._db.cursor()
             self.disable_foreign_key_checks()
             for table in tables:
-                self._cursor.execute(f"DROP TABLE IF EXISTS '{table}'")
+                cursor.execute(f"DROP TABLE IF EXISTS '{table}'")
             self.enable_foreign_key_checks()
 
         for info in _schema.values():
@@ -140,7 +140,8 @@ class Database(object):
                          f"{col.sql_references()}"
                          for col in table_info)
         _key = table_info.primary_key()
-        self._cursor.execute(f"CREATE TABLE{_force} {_name}({_cols}, {_key})")
+        cursor = self._db.cursor()
+        cursor.execute(f"CREATE TABLE{_force} {_name}({_cols}, {_key})")
 
         for name, idx in table_info.indices():
             if idx.is_primary:
@@ -154,10 +155,11 @@ class Database(object):
             name: Table name
             index: Information about the index
         """
-        self._cursor.execute("CREATE"
-                             f"{' UNIQUE' if index.is_unique else ''} "
-                             f" INDEX {index.name} ON {name} "
-                             f"({index.key_format()})")
+        cursor = self._db.cursor()
+        cursor.execute("CREATE"
+                       f"{' UNIQUE' if index.is_unique else ''} "
+                       f" INDEX {index.name} ON {name} "
+                       f"({index.key_format()})")
 
     def export_schema(self) -> Optional[dict]:
         """Export current schema
@@ -198,10 +200,11 @@ class Database(object):
         table = self.schema[name]
         where_str = f" WHERE {where}" if where is not None else ""
         order_str = f" ORDER BY {order}" if order else ""
-        self._cursor.execute(f"SELECT * FROM {table.name}{where_str}{order_str}",
-                             kwargs)
         _type = table.record_type if rectype is None else rectype
-        for row in self._cursor:
+        cursor = self._db.cursor()
+        cursor.execute(f"SELECT * FROM {table.name}{where_str}{order_str}",
+                       kwargs)
+        for row in cursor:
             yield _type(*row)
 
     def count(self,
@@ -229,9 +232,10 @@ class Database(object):
         table = self.schema[name]
         where_str = f" WHERE {where}" if where is not None else ""
         order_str = f" ORDER BY {order}" if order else ""
-        self._cursor.execute(f"SELECT COUNT(*) FROM {table.name}{where_str}{order_str}",
-                             kwargs)
-        return self._cursor.fetchone()[0]
+        cursor = self._db.cursor()
+        cursor.execute(f"SELECT COUNT(*) FROM {table.name}{where_str}{order_str}",
+                       kwargs)
+        return cursor.fetchone()[0]
 
     def insert(self,
                name: str,
@@ -251,7 +255,8 @@ class Database(object):
         command = str(f"{'REPLACE' if force else 'INSERT OR IGNORE'} "
                       f"INTO {table.name} "
                       f"VALUES {table.format(self.placeholder)}")
-        self._cursor.executemany(command, rows)
+        cursor = self._db.cursor()
+        cursor.executemany(command, rows)
 
     def delete(self, name: str, where: Optional[str] = None, **kwargs) -> None:
         """Delete records from table                
@@ -264,7 +269,8 @@ class Database(object):
             **kwargs: Variables inserted into the where string.
         """
         _where = f" WHERE {where}" if where is not None else ""
-        self._cursor.execute(f"DELETE FROM {name}{_where}", kwargs)
+        cursor = self._db.cursor()
+        cursor.execute(f"DELETE FROM {name}{_where}", kwargs)
 
     def delete_ids(self, name: str, ids: Iterable[int]) -> None:
         """Delete records by id
@@ -308,8 +314,8 @@ class Database(object):
         """
         table = self.schema[name]
         _where = f" WHERE {where}" if where else ""
-        self._cursor.execute(f"UPDATE {table.name} SET {assignment}{_where}",
-                             kwargs)
+        cursor = self._db.cursor
+        cursor.execute(f"UPDATE {table.name} SET {assignment}{_where}", kwargs)
 
     def unique(self, name: str, where: str, **kwargs) -> NamedTuple:
         """Get unique result of a query
@@ -366,8 +372,9 @@ class Database(object):
         if col is None:
             raise ValueError(f"Table {name} has no unique ID column")
         # query is safe here, since an invalid name will raise in schema lookup
-        self._cursor.execute(f"SELECT MAX({col}) from {name}")
-        for rec in self._cursor.fetchall():
+        cursor = self._db.cursor()
+        cursor.execute(f"SELECT MAX({col}) from {name}")
+        for rec in cursor.fetchall():
             return -1 if rec[0] is None else int(rec[0])
         raise ValueError("Unable to retrieve maximum of column")
 
