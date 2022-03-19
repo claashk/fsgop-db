@@ -256,11 +256,7 @@ class Sequence(object):
     """
     def __init__(self, seq: Iterable):
         self._iter = iter(seq)
-        self._first = None
-
-        for x in self._iter:
-            self._first = x
-            break
+        self._first = next(self._iter, None)
 
     def __iter__(self) -> Iterable:
         if self._first is not None:
