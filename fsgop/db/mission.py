@@ -172,11 +172,11 @@ class Mission(Record):
                   "passenger3",
                   "passenger4",
                   "charge_person"}:
-            kwargs = Person.layout(prefix=f"{p}_", allow=allow)
+            kwargs = Person.layout(prefix=f"{prefix}{p}_", allow=allow)
             if kwargs:
                 retval[p] = kwargs
 
-        kwargs = Vehicle.layout(prefix="vehicle_", allow=allow)
+        kwargs = Vehicle.layout(prefix=f"{prefix}vehicle_", allow=allow)
         if kwargs:
             retval["vehicle"] = kwargs
 
