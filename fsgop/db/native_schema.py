@@ -234,7 +234,7 @@ schema_v1 = {
              'references': "vehicles(uid)"},
             {'name': 'pilot',
              'dtype': 'int',
-             'allows_null': False,
+             'allows_null': True,
              'default_value': None,
              'extra': '',
              'references': "people(uid)"},
