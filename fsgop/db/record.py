@@ -7,7 +7,7 @@ from .database import Database
 
 
 def _to(obj, cls):
-    if obj is None:
+    if obj is None or (isinstance(obj, Record) and not obj):
         return None
     if isinstance(obj, cls):
             return obj
@@ -35,7 +35,7 @@ class Record(object):
     def __str__(self) -> str:
         """Convert this to string consisting of index fields
         """
-        return " ".join([self.format(x) for x in self.index])
+        return ",".join([self.format(x) for x in self.index])
 
     def __int__(self) -> int:
         """Convert this record to an integer
@@ -43,7 +43,12 @@ class Record(object):
         Raises:
             TypeError: If no uid has been assigned to this record
         """
-        return int(self.uid)
+        try:
+            return int(self.uid)
+        except TypeError:
+            pass
+        raise TypeError(f"In {type(self)}({self}): Unable to convert uid "
+                        f"({self.uid}) to integer")
 
     def __bool__(self):
         return self.key() is not None
