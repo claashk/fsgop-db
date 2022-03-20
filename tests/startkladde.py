@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import timedelta
 
 from fsgop.db import SqliteDatabase, Property
-from fsgop.db.startkladde import schema_v3, iter_persons
+import fsgop.db.startkladde as sk
 
 
 DATA_DIR = Path(__file__).parent / "startkladde-dump"
@@ -27,7 +27,7 @@ class StartkladdeTestCase(unittest.TestCase):
 
     def test_import(self):
         with SqliteDatabase.from_dump(DATA_DIR,
-                                      schema=schema_v3,
+                                      schema=sk.schema_v3,
                                       db=str(self.db_path)) as db:
             people = list(db.select("people"))
             self.assertEqual(3, len(people))
@@ -38,7 +38,8 @@ class StartkladdeTestCase(unittest.TestCase):
             self.assertEqual(3, len(planes))
             self.assertListEqual([1, 2, 10], [p.id for p in planes])
 
-            persons = list(iter_persons(db))
+            repo = sk.Repository(db=db)
+            persons = list(repo.persons())
             self.assertEqual(len(people), len(persons))
             for p1, p2 in zip(people, persons):
                 self.assertEqual(p1.last_name, p2.last_name)

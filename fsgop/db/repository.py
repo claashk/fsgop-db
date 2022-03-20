@@ -1,11 +1,10 @@
 import logging
-from typing import List, NamedTuple, Type, Iterable, Union
+from typing import Type, Iterable, Union
 from pathlib import Path
 
-from .person import NameAdapter, Person, PersonProperty
+from .person import Person, PersonProperty
 from .vehicle import Vehicle, VehicleProperty
 from .mission import Mission
-from .utils import kwargs_from
 from .sqlite_db import SqliteDatabase
 from .utils import Sequence, chunk
 from .record import Record
@@ -37,14 +36,25 @@ class Repository(object):
         "missions": Mission
     }
 
-    def __init__(self, db) -> None:
-        self._db = db
+    def __init__(self, db: str) -> None:
+        self._db = None
+        if db:
+            self.open(db)
 
     def __enter__(self) -> "Repository":
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self._db.__exit__(exc_type, exc_val, exc_tb)
+        self.close()
+
+    def open(self, db: str, **kwargs) -> None:
+        self.close()
+        self._db = SqliteDatabase(db=db, schema=schema_v1, **kwargs)
+
+    def close(self):
+        if self._db is not None:
+            self._db.disconnect()
+            self._db = None
 
     def insert(self, recs: Iterable[Record], force: bool = False) -> tuple:
         """Insert native data records into database
@@ -68,6 +78,8 @@ class Repository(object):
         n = self._db.count(table)
         for items in chunk(_recs, 1024):
             batch = list(items)
+            # TODO records could be incomplete if uids are missing
+            # -> add a method complete(db) to Record, which completes the record
             self._db.insert(table,
                             (r.to(rectype, col_types) for r in batch),
                             force=force)
@@ -107,6 +119,13 @@ class Repository(object):
         raise KeyError(f"No native type found for {t}")
 
     @classmethod
+    def new(cls, path):
+        """Create a new repository from scratch"""
+        repo = cls(path)
+        repo._db.reset()
+        return repo
+
+    @classmethod
     def from_startkladde(cls,
                          path: Union[str, Path],
                          db: Union[str, Path]) -> "Repository":
@@ -124,19 +143,16 @@ class Repository(object):
         Returns:
             New database with native schema
         """
-        with SqliteDatabase(path) as src:
+        try:
+            with sk.Repository(path) as src, cls.new(db) as dest:
+                dest.insert(src.persons(), force=True)
+                dest.insert(src.vehicles(), force=True)
+                dest.insert(src.missions(), force=True)
+                dest.commit()  # without this, nothing gets written!
+                return dest
+        except:
             try:
-                _db = SqliteDatabase(db=db, schema=schema_v1)
-                _db.reset()
-                repo = cls(db=_db)
-                repo.insert(sk.iter_persons(src), force=True)
-                repo.insert(sk.iter_vehicles(src), force=True)
-                repo.insert(sk.iter_missions(src), force=True)
-                repo.commit()  # without this, nothing gets written!
-            except:
-                try:
-                    Path(db).unlink()
-                except FileNotFoundError:
-                    pass
-                raise
-        return repo
+                Path(db).unlink()
+            except FileNotFoundError:
+                pass
+            raise
