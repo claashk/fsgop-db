@@ -410,11 +410,10 @@ class Database(object):
         """
         src = Path(path)
         if src.is_file() and "".join(src.suffixes) in (".tar.gz", ".tgz"):
-            archive = TarFile(src, mode="r:gz")
+            archive = TarFile.open(src, mode="r:gz")
             with TemporaryDirectory() as tmpdir:
-                dest = tmpdir / src.stem
-                dest.mkdir(exist_ok=True)
-                archive.extractall(path=dest)
+                archive.extractall(path=tmpdir)
+                dest = Path(tmpdir) / src.stem
                 return cls.from_dump(dest, schema, db)
 
         if not src.is_dir():
