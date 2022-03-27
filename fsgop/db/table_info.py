@@ -1,7 +1,7 @@
 from typing import Optional, Iterable, Generator, Tuple, NamedTuple, Union, Dict
 from typing import Type, List
 import re
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from datetime import datetime, date
 from pathlib import Path
 from copy import deepcopy
@@ -611,3 +611,77 @@ def to_schema(d: Dict[str, Union[TableInfo, dict]]) -> Dict[str, TableInfo]:
     _dict = deepcopy(d)
     return {k: v if isinstance(v, TableInfo) else TableInfo.from_list(k, **v)
             for k, v in _dict.items()}
+
+
+def join_columns(table: str,
+                 schema: dict,
+                 depth: int = -1) -> Dict[str, Union[ColumnInfo, dict]]:
+    """Get nested dictionary with joined columns for a table
+
+    Args:
+        table: Table name in schema
+        schema: Schema
+        depth: Integer setting the maximum recursion depth. -1 implies infinite
+            recursion. Defaults to -1.
+
+    Returns:
+        Ordered Dictionary containing the column name as key and either a
+        :class:`ColumnInfo` instance as value, if the column does not reference
+        another column or the dictionary obtained by calling join_columns on the
+        referenced table.
+    """
+    retval = OrderedDict()
+    for col in schema[table]:
+        ref_table, ref_col = col.ref_info
+        if ref_table is None or depth == 0:
+            retval[col.name] = col
+        else:
+            retval[col.name] = join_columns(ref_table, schema, depth=depth - 1)
+    return retval
+
+
+def _recurse(d: dict) -> Generator[tuple, None, None]:
+    """Recursively iterate over nested dictionary
+
+    Args:
+        d: Possibly nested dictionary
+
+    Yields:
+        Tuple containing all nested keys and the associated value
+    """
+    for k, v in d.items():
+        if isinstance(v, dict):
+            for t in _recurse(v):
+                yield (k, *t)
+        else:
+            yield k, v
+
+
+def extended_record_type(table: str,
+                         schema: dict,
+                         aliases: Optional[dict] = None,
+                         name: Optional[str] = None,
+                         depth: int = -1) -> Type[namedtuple]:
+    """Get native type for a table including expanded joined tables
+
+    Args:
+        table: Table name. Passed verbatim to :func:`join_columns`.
+        schema: Database schema. Passed verbatim to :func:`join_columns`.
+        aliases: Dictionary with aliases
+        name: Name of created namedtuple type. Defaults to "Joined<Table>Record".
+        depth: Max. recursion depth. Passed verbatim to :func:`join_columns`
+
+    Return:
+        Namedtuple capable of holding data from a join operation
+    """
+    _alias = aliases if aliases is not None else dict()
+
+    if name is not None:
+        _n = name
+    else:
+        _n = f"Extended{''.join(s.capitalize() for s in table.split('_'))}Record"
+
+    fields = []
+    for t in _recurse(join_columns(table, schema=schema, depth=depth)):
+        fields.append("_".join(_alias.get(s, s) for s in t[:-1]))
+    return namedtuple(_n, fields)

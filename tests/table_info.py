@@ -5,6 +5,7 @@ from datetime import datetime, date
 from pathlib import Path
 
 from fsgop.db import TableInfo, ColumnInfo, IndexInfo, Person, sort_tables
+from fsgop.db.table_info import join_columns, extended_record_type
 from fsgop.db import to_schema
 from fsgop.db.startkladde import schema_v3
 from fsgop.db.utils import kwargs_from
@@ -144,6 +145,45 @@ class TableInfoTestCase(unittest.TestCase):
                               "schema_migrations",
                               "flights"],
                              [t.name for t in sorted_tables])
+
+    def test_join_columns(self):
+        schema = self.get_schema()
+        joined_cols = join_columns("flights", schema)
+        self.assertSetEqual(set(schema["flights"].columns),
+                            set(joined_cols.keys()))
+        for col in ["pilot_id", "copilot_id", "towpilot_id"]:
+            self.assertSetEqual(set(schema["people"].columns),
+                                set(joined_cols[col].keys()))
+
+        for col in ["plane_id", "towplane_id"]:
+            self.assertSetEqual(set(schema["planes"].columns),
+                                set(joined_cols[col].keys()))
+        for col in ["type", "mode", "id", "departed"]:
+            self.assertTrue(isinstance(joined_cols[col], ColumnInfo))
+
+        joined_cols = join_columns("flights", schema, depth=0)
+        self.assertSetEqual(set(schema["flights"].columns),
+                            set(joined_cols.keys()))
+        for col in joined_cols.values():
+            self.assertTrue(isinstance(col, ColumnInfo))
+
+    def test_joined_native_type(self):
+        schema = self.get_schema()
+        aliases = {"plane_id": "plane",
+                   "towplane_id": "towplane",
+                   "pilot_id": "pilot_",
+                   "copilot_id": "copilot_"}
+        _type = extended_record_type("flights", schema=schema, aliases=aliases)
+        self.assertEqual("ExtendedFlightsRecord", _type.__name__)
+        for x in ["plane_id",
+                  "plane_registration",
+                  "pilot_first_name",
+                  "pilot__id",
+                  "pilot__first_name",
+                  "pilot__last_name",
+                  "copilot__last_name",
+                  "copilot__id"]:
+            self.assertIn(x, _type._fields)
 
 
 def suite():
