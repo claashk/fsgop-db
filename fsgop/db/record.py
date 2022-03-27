@@ -10,14 +10,18 @@ def _to(obj, cls):
     if obj is None or (isinstance(obj, Record) and not obj):
         return None
     if isinstance(obj, cls):
-            return obj
+        return obj
     if issubclass(cls, datetime):
         if isinstance(obj, date):
             return datetime.combine(obj, time(hour=0, minute=0))
     if issubclass(cls, date):
         if isinstance(obj, datetime):
             return obj.date()
-    return cls(obj)
+    try:
+        return cls(obj)
+    except TypeError:
+        pass
+    raise TypeError(f"Unable to convert {obj} to {cls}")
 
 
 class Record(object):
@@ -35,7 +39,7 @@ class Record(object):
     def __str__(self) -> str:
         """Convert this to string consisting of index fields
         """
-        return ",".join([self.format(x) for x in self.index])
+        return ",".join([str(x) if x is not None else "" for x in self.index])
 
     def __int__(self) -> int:
         """Convert this record to an integer
@@ -43,12 +47,7 @@ class Record(object):
         Raises:
             TypeError: If no uid has been assigned to this record
         """
-        try:
-            return int(self.uid)
-        except TypeError:
-            pass
-        raise TypeError(f"In {type(self)}({self}): Unable to convert uid "
-                        f"({self.uid}) to integer")
+        return int(self.uid)
 
     def __bool__(self):
         return self.key() is not None
@@ -173,21 +172,6 @@ class Record(object):
         kwargs = {k: getattr(self, k) for k in self.index}
         _where = " and ".join(f"{k}={db.var(k)}" for k in kwargs.keys())
         return db.unique(table, where=_where, **kwargs)
-
-    def format(self, name: str) -> str:
-        """Convert an attribute to a string
-
-        This function is called by various exporters. This default implementation
-        simply returns ``str(x)``. Override for special treatment of certain
-        attributes.
-
-        Args:
-            name: Attribute name
-
-        Returns:
-            Attribute ``name`` converted to string
-        """
-        return to(str, getattr(self, name), default="")
 
     @classmethod
     def layout(cls, prefix: str = "", allow: Iterable[str] = None) -> dict:
