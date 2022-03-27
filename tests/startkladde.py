@@ -30,8 +30,8 @@ class StartkladdeTestCase(unittest.TestCase):
                                       schema=sk.schema_v3,
                                       db=str(self.db_path)) as db:
             people = list(db.select("people"))
-            self.assertEqual(3, len(people))
-            self.assertListEqual([1, 2, 3], [p.id for p in people])
+            self.assertEqual(4, len(people))
+            self.assertListEqual([1, 2, 3, 79], [p.id for p in people])
             self.assertEqual(len(people), db.count("people"))
 
             planes = list(db.select("planes"))
@@ -45,10 +45,10 @@ class StartkladdeTestCase(unittest.TestCase):
                 self.assertEqual(p1.last_name, p2.last_name)
                 self.assertEqual(p1.first_name, p2.first_name)
                 self.assertEqual(p1.id, p2.uid)
-
-                med_validity = Property.get_from(p2, "medical").valid_until
-                med_validity = (med_validity - timedelta(hours=24)).date()
-                self.assertEqual(p1.medical_validity, str(med_validity))
+                if p1.last_name != "Gast":
+                    med_validity = Property.get_from(p2, "medical").valid_until
+                    med_validity = (med_validity - timedelta(hours=24)).date()
+                    self.assertEqual(p1.medical_validity, str(med_validity))
 
 
 def suite():

@@ -3,6 +3,7 @@
 from typing import Iterator, Optional, Iterable, Union
 from datetime import datetime, timedelta, time
 from pathlib import Path
+import logging
 
 from .sqlite_db import SqliteDatabase
 from .person import Person, PersonProperty, NameAdapter
@@ -14,6 +15,9 @@ from .mission import NORMAL_FLIGHT, GUEST_FLIGHT, ONE_SEATED_TRAINING
 from .mission import TWO_SEATED_TRAINING, WINCH_OPERATION, AEROTOW
 
 from .utils import kwargs_from, get_value, set_value
+
+logger = logging.getLogger(__name__)
+
 
 LAUNCH_TYPE_WINCH = "winch"
 LAUNCH_TYPE_AEROTOW = "airtow"
@@ -593,16 +597,31 @@ class Repository(object):
 
         Args:
             mission: Mission for which to create a winch launch
+            vehicle: Vehicle (winch) for this mission
+
+        Return:
+            New mission representing a winch session used to launch this mission
         """
         lm_uid = int(mission.launch)  # initial assignment
+        begin = mission.begin
         try:
             launch = self._winch_missions[(lm_uid, mission.origin)]
-            if launch.begin <= mission.begin < launch.end:
+
+            if begin is not None and launch.begin <= begin < launch.end:
                 return launch
+
+            if begin is None and mission.end is not None:
+                if mission.end.date() == launch.begin.date():
+                    return launch
         except KeyError:
             pass
         # create a new mission
-        end = datetime.combine((mission.begin + timedelta(hours=24)).date(),
+        if begin is None and mission.end is not None:
+            begin = datetime.combine(mission.end.date(),
+                                     time(hour=0, minute=0, second=0))
+        if begin is None:
+            raise ValueError(f"Mission {mission} has neither begin nor end")
+        end = datetime.combine((begin + timedelta(hours=24)).date(),
                                time(hour=0, minute=0, second=0))
         launch = Mission(uid=None,  # has to be set later by user
                          vehicle=vehicle,
@@ -610,7 +629,7 @@ class Repository(object):
                          category=WINCH_OPERATION,
                          num_stints=None,
                          origin=mission.origin,
-                         begin=mission.begin,
+                         begin=begin,
                          destination=mission.origin,  # winch does not move
                          end=end,
                          charge_person=None,
@@ -700,6 +719,7 @@ class Repository(object):
                 PersonProperty(name="medical",
                                value="class 2",
                                valid_until=t).add_to(person)
+            #TODO add property for club membership
             yield person
 
     def launch_methods(self) -> Iterator[Vehicle]:
@@ -735,9 +755,6 @@ class Repository(object):
 
     def planes(self) -> Iterator[Vehicle]:
         """Get planes from startkladde database
-
-        Args:
-            db: Database using the startkladde schema
 
         Yields:
             One :class:`~fsgop.db.Vehicle` instance per plane in db
@@ -805,6 +822,14 @@ class Repository(object):
                 raise ValueError("Invalid launch vehicle category: "
                                  f"'{launch_vehicle.category}'")
             mission.launch = launch
+            if mission.pilot and mission.pilot.uid is None:
+                logger.warning(f"Mission {mission} uses unknown Pilot "
+                               f"{mission.pilot}. Set pilot to <None>")
+                mission.pilot = None
+            if mission.copilot and mission.copilot.uid is None:
+                logger.warning(f"Mission {mission} uses unknown Copilot "
+                               f"{mission.copilot}. Set copilot to <None>")
+                mission.copilot = None
             yield mission
         self._winch_missions = None  # indicate, that method can be invoked
         return
