@@ -5,9 +5,10 @@ from datetime import datetime, date
 from pathlib import Path
 
 from fsgop.db import TableInfo, ColumnInfo, IndexInfo, Person, sort_tables
-from fsgop.db.table_info import join_columns, extended_record_type
+from fsgop.db.table_info import SchemaIterator
 from fsgop.db import to_schema
 from fsgop.db.startkladde import schema_v3
+from fsgop.db.native_schema import schema_v1
 from fsgop.db.utils import kwargs_from
 
 
@@ -33,8 +34,8 @@ class TableInfoTestCase(unittest.TestCase):
         ]
 
     @staticmethod
-    def get_schema():
-        return to_schema(schema_v3)
+    def get_schema(native=False):
+        return to_schema(schema_v1) if native else to_schema(schema_v3)
 
     def test_column_construction(self):
         col = ColumnInfo()
@@ -146,35 +147,17 @@ class TableInfoTestCase(unittest.TestCase):
                               "flights"],
                              [t.name for t in sorted_tables])
 
-    def test_join_columns(self):
+    def test_schema_iterator(self):
         schema = self.get_schema()
-        joined_cols = join_columns("flights", schema)
-        self.assertSetEqual(set(schema["flights"].columns),
-                            set(joined_cols.keys()))
-        for col in ["pilot_id", "copilot_id", "towpilot_id"]:
-            self.assertSetEqual(set(schema["people"].columns),
-                                set(joined_cols[col].keys()))
-
-        for col in ["plane_id", "towplane_id"]:
-            self.assertSetEqual(set(schema["planes"].columns),
-                                set(joined_cols[col].keys()))
-        for col in ["type", "mode", "id", "departed"]:
-            self.assertTrue(isinstance(joined_cols[col], ColumnInfo))
-
-        joined_cols = join_columns("flights", schema, depth=0)
-        self.assertSetEqual(set(schema["flights"].columns),
-                            set(joined_cols.keys()))
-        for col in joined_cols.values():
-            self.assertTrue(isinstance(col, ColumnInfo))
-
-    def test_joined_native_type(self):
-        schema = self.get_schema()
+        traverse = SchemaIterator(schema)
         aliases = {"plane_id": "plane",
                    "towplane_id": "towplane",
                    "pilot_id": "pilot_",
                    "copilot_id": "copilot_"}
-        _type = extended_record_type("flights", schema=schema, aliases=aliases)
-        self.assertEqual("ExtendedFlightsRecord", _type.__name__)
+
+        fields = ["_".join(aliases.get(s, s) for s in it.path)
+                  for it in traverse("flights")]
+
         for x in ["plane_id",
                   "plane_registration",
                   "pilot_first_name",
@@ -183,7 +166,41 @@ class TableInfoTestCase(unittest.TestCase):
                   "pilot__last_name",
                   "copilot__last_name",
                   "copilot__id"]:
-            self.assertIn(x, _type._fields)
+            self.assertIn(x, fields)
+
+    def test_schema_iterator_parent(self):
+        schema = self.get_schema()
+        traverse = SchemaIterator(schema)
+
+        refs = {it.parent(): it.unique_name for it in traverse("flights")
+                if it.parent() is not None}
+
+        for col in schema["flights"]:
+            rtable, rcol = col.ref_info
+            if rtable is not None:
+                colname = f"flights.{col.name}"
+                self.assertEqual(f"{col.name}_{rtable}.{rcol}",
+                                 refs[colname])
+            else:
+                self.assertNotIn(col.name, refs.keys())
+
+        schema = self.get_schema(native=True)
+        traverse = SchemaIterator(schema)
+        refs = {it.parent(): it.unique_name for it in traverse("missions", 2)
+                if it.parent() is not None}
+
+        for col in schema["missions"]:
+            rtable, rcol = col.ref_info
+            if rtable is not None:
+                colname = f"missions.{col.name}"
+                self.assertEqual(f"{col.name}_{rtable}.{rcol}", refs[colname])
+
+                # check recursive launch items
+                colname = f"launch_missions.{col.name}"
+                self.assertEqual(f"launch_{col.name}_{rtable}.{rcol}",
+                                 refs[colname])
+            else:
+                self.assertNotIn(col.name, refs.keys())
 
 
 def suite():

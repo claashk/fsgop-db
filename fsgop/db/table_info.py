@@ -613,75 +613,115 @@ def to_schema(d: Dict[str, Union[TableInfo, dict]]) -> Dict[str, TableInfo]:
             for k, v in _dict.items()}
 
 
-def join_columns(table: str,
-                 schema: dict,
-                 depth: int = -1) -> Dict[str, Union[ColumnInfo, dict]]:
-    """Get nested dictionary with joined columns for a table
+class SchemaIterator(object):
+    """Recursively iterate over all columns in a table
+
+    Iterates over all columns of a table including columns in referenced tables
 
     Args:
-        table: Table name in schema
         schema: Schema
-        depth: Integer setting the maximum recursion depth. -1 implies infinite
-            recursion. Defaults to -1.
-
-    Returns:
-        Ordered Dictionary containing the column name as key and either a
-        :class:`ColumnInfo` instance as value, if the column does not reference
-        another column or the dictionary obtained by calling join_columns on the
-        referenced table.
     """
-    retval = OrderedDict()
-    for col in schema[table]:
-        ref_table, ref_col = col.ref_info
-        if ref_table is None or depth == 0:
-            retval[col.name] = col
-        else:
-            retval[col.name] = join_columns(ref_table, schema, depth=depth - 1)
-    return retval
+    def __init__(self, schema: dict) -> None:
+        self._schema = schema
+        self._cols = list()
+        self._tables = list()
+        self._index = -1
 
+    def __int__(self):
+        return int(self._index)
 
-def _recurse(d: dict) -> Generator[tuple, None, None]:
-    """Recursively iterate over nested dictionary
+    def __call__(self,
+                 table: str,
+                 depth: int = -1) -> Generator["SchemaIterator", None, None]:
+        """Iterate over all columns of the specified table up to a maximum depth
 
-    Args:
-        d: Possibly nested dictionary
+        Args:
+            table: Name of table to iterate over
+            depth: Recursion depth. Use -1 for infinite recursion. Defaults to
+                -1.
 
-    Yields:
-        Tuple containing all nested keys and the associated value
-    """
-    for k, v in d.items():
-        if isinstance(v, dict):
-            for t in _recurse(v):
-                yield (k, *t)
-        else:
-            yield k, v
+        Yields:
+            One :class:`~fsgop.db.SchemaIterator` for each column in `table`
+        """
+        self._cols.clear()
+        self._tables.clear()
+        self._index = -1
+        yield from self._iter(table, depth=depth)
 
+    @property
+    def table(self) -> TableInfo:
+        """Access current table"""
+        return self._tables[-1]
 
-def extended_record_type(table: str,
-                         schema: dict,
-                         aliases: Optional[dict] = None,
-                         name: Optional[str] = None,
-                         depth: int = -1) -> Type[namedtuple]:
-    """Get native type for a table including expanded joined tables
+    @property
+    def column(self) -> ColumnInfo:
+        """Access current column"""
+        return self._cols[-1]
 
-    Args:
-        table: Table name. Passed verbatim to :func:`join_columns`.
-        schema: Database schema. Passed verbatim to :func:`join_columns`.
-        aliases: Dictionary with aliases
-        name: Name of created namedtuple type. Defaults to "Joined<Table>Record".
-        depth: Max. recursion depth. Passed verbatim to :func:`join_columns`
+    @property
+    def path(self) -> Tuple[str]:
+        """Get name of this column and all parent columns"""
+        return tuple(col.name for col in self._cols)
 
-    Return:
-        Namedtuple capable of holding data from a join operation
-    """
-    _alias = aliases if aliases is not None else dict()
+    @property
+    def unique_table_name(self) -> str:
+        """Get unique name for the current table"""
+        return "_".join(self.path[:-1] + (self.table.name,))
 
-    if name is not None:
-        _n = name
-    else:
-        _n = f"Extended{''.join(s.capitalize() for s in table.split('_'))}Record"
+    @property
+    def unique_name(self) -> str:
+        """Get unique name for the current column"""
+        return f"{self.unique_table_name}.{self.column.name}"
 
-    fields = []
-    for t in _recurse(join_columns(table, schema=schema, depth=depth)):
-        fields.append("_".join(_alias.get(s, s) for s in t[:-1]))
-    return namedtuple(_n, fields)
+    def parent(self, unique: bool = True) -> Optional[str]:
+        """Get name of table and column, by which this column is referenced
+
+        Args:
+            unique: If ``True``, unique names are returned.
+
+        Returns:
+            name of parent column referencing the current column, ``None`` if the
+            current column is not referenced by its parent.
+        """
+        retval = None
+        if len(self._cols) < 2:
+            return retval
+        table, col = self._tables[-2], self._cols[-2]
+        if col.ref_info == (self.table.name, self.column.name):
+            if unique:
+                tname = "_".join(self.path[:-2] + (table.name,))
+                retval = f"{tname}.{col.name}"
+            else:
+                retval = f"{table.name}.{col.name}"
+        return retval
+
+    def to_dict(self, d):
+        _tmp = d if d is not None else dict()
+        for p in self._cols:
+            _tmp = _tmp.setdefault(p.name, dict())
+        return _tmp
+
+    def _iter(self,
+              table: str,
+              depth: int = -1)-> Generator["SchemaIterator", None, None]:
+        """Iteration implementation
+
+        Args:
+            table: Table name
+            depth: Max. recursion depth
+
+        Yields:
+            One :class:`~fsgop.db.SchemaIterator` for each column in `table`
+        """
+        self._tables.append(self._schema[table])
+        self._cols.append(None)
+        for self._cols[-1] in self.table:
+            self._index += 1
+            ref_table, ref_col = self.column.ref_info
+            if ref_table is not None and depth != 0:
+                yield from self._iter(ref_table, depth=depth - 1)
+            else:
+                yield self
+        self._cols.pop()
+        self._tables.pop()
+        return
