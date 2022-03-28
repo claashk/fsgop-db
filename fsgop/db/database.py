@@ -3,8 +3,10 @@ from typing import Optional, Generator, Iterable, NamedTuple, Any, Union
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from tarfile import TarFile
+from collections import namedtuple
 
 from .table_info import TableInfo, IndexInfo, sort_tables, to_schema
+from .table_info import SchemaIterator
 from .table_io import CsvParser
 
 logger = logging.getLogger(__name__)
@@ -203,6 +205,58 @@ class Database(object):
         _type = table.record_type if rectype is None else rectype
         cursor = self._db.cursor()
         cursor.execute(f"SELECT * FROM {table.name}{where_str}{order_str}",
+                       kwargs)
+        for row in cursor:
+            yield _type(*row)
+
+    def join(self,
+             table: str,
+             where: Optional[str] = None,
+             order: Optional[str] = None,
+             depth: int = -1,
+             **kwargs) -> Generator[NamedTuple, None, None]:
+        """Join records of a table
+
+        Joins all referencing columns with the associated tables and yields
+        the resulting records
+
+        Args:
+            table: Name of table to query
+            where: Search string passed verbatim to WHERE statement of SELECT
+            order: String passed verbatim to ORDER statement
+            depth: Maximum recursion depth. -1 implies infinite recursion.
+                Defaults to -1.
+            **kwargs: Variables to be inserted into the `where` and `order`
+                strings in a safe manner.
+
+        Yields:
+            Joined records
+        """
+        traverse = SchemaIterator(self.schema)
+
+        fields = []
+        cols = []
+        joins = []
+        for it in traverse(table, depth=depth):
+            fields.append("_".join(it.path))
+            # we need unique table names to avoid name conflicts
+            table_name = it.unique_table_name
+            col_name = f"{table_name}.{it.column.name}"
+            cols.append(col_name)
+            ref = it.parent(unique=True)
+            if ref is not None:
+                joins.append(f"LEFT JOIN {it.table.name} {table_name} "
+                             f"ON {col_name} = {ref}")
+
+        _name = f"{''.join(s.capitalize() for s in table.split('_'))}"
+        _type = namedtuple(f"Extended{_name}Record", fields)
+        _cols = ",".join(cols)
+        _joins = " ".join(joins)
+        _where = f" WHERE {where}" if where is not None else ""
+        _order = f" ORDER BY {order}" if order else ""
+
+        cursor = self._db.cursor()
+        cursor.execute(f"SELECT {_cols} FROM {table} {_joins}{_where}{_order}",
                        kwargs)
         for row in cursor:
             yield _type(*row)

@@ -5,7 +5,7 @@ from datetime import datetime, date
 from pathlib import Path
 
 from fsgop.db import TableInfo, ColumnInfo, IndexInfo, Person, sort_tables
-from fsgop.db.table_info import SchemaIterator
+from fsgop.db import SchemaIterator
 from fsgop.db import to_schema
 from fsgop.db.startkladde import schema_v3
 from fsgop.db.native_schema import schema_v1

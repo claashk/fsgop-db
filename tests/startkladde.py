@@ -38,6 +38,30 @@ class StartkladdeTestCase(unittest.TestCase):
             self.assertEqual(3, len(planes))
             self.assertListEqual([1, 2, 10], [p.id for p in planes])
 
+            flights = list(db.select("flights"))
+            self.assertEqual(3, len(flights))
+
+            joined_flights = list(db.join("flights"))
+            self.assertEqual(len(flights), len(joined_flights))
+
+            _people = {p.id: p for p in people}
+            for i in range(len(flights)):
+                self.assertEqual(_people[flights[i].pilot_id].first_name,
+                                 joined_flights[i].pilot_id_first_name)
+
+                self.assertEqual(_people[flights[i].pilot_id].last_name,
+                                 joined_flights[i].pilot_id_last_name)
+
+                if flights[i].copilot_id is None:
+                    self.assertIsNone(joined_flights[i].copilot_id_first_name)
+                    self.assertIsNone(joined_flights[i].copilot_id_last_name)
+                else:
+                    self.assertEqual(_people[flights[i].copilot_id].first_name,
+                                     joined_flights[i].copilot_id_first_name)
+
+                    self.assertEqual(_people[flights[i].copilot_id].last_name,
+                                     joined_flights[i].copilot_id_last_name)
+
             repo = sk.Repository(db=db)
             persons = list(repo.persons())
             self.assertEqual(len(people), len(persons))
