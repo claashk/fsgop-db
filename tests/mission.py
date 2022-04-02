@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 class MissionTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
-        # Robert Hutchings Goddard (* 5. Oktober 1882 in Worcester, Massachusetts, USA; † 10. August 1945 in Baltimore, Marylan
         self.person1 = Person(first_name="Otto",
                              last_name="Prof. Dr. Lilienthal",
                              birthday="1848-05-23")
@@ -156,6 +155,31 @@ class MissionTestCase(unittest.TestCase):
         self.assertTrue(m4.almost_equal(m1))
         self.assertTrue(m4.almost_equal(m2))
         self.assertFalse(m4.almost_equal(m3))
+
+    def test_iter(self):
+        towpilot = Person(33)
+        m2 = Mission(pilot=towpilot,
+                     vehicle=self.vehicle,
+                     begin="2020-12-31 15:00:00",
+                     end="2021-01-01 1:20:00")
+
+        m1 = Mission(pilot=self.person1,
+                     copilot=self.person2,
+                     launch=m2,
+                     vehicle=Vehicle(uid=21),
+                     begin="2020-12-31 15:00:00",
+                     end="2021-01-01 1:20:00")
+
+        persons = set(p for k, p in m2.select(Person))
+        self.assertEqual(1, len(persons))
+        self.assertNotIn(self.person1, persons)
+        self.assertIn(towpilot, persons)
+
+        persons = set(p for k, p in m1.select(Person))
+        self.assertEqual(3, len(persons))
+        self.assertIn(self.person1, persons)
+        self.assertIn(self.person2, persons)
+        self.assertIn(towpilot, persons)
 
 
 def suite():

@@ -39,7 +39,8 @@ class Record(object):
     def __str__(self) -> str:
         """Convert this to string consisting of index fields
         """
-        return ",".join([str(x) if x is not None else "" for x in self.index])
+        return ",".join([str(x) if x is not None else ""
+                         for x in self.index_tuple()])
 
     def __int__(self) -> int:
         """Convert this record to an integer
@@ -109,6 +110,22 @@ class Record(object):
         """
         for v in self._properties.values():
             yield from v
+
+    def select(self, cls) -> Iterator[tuple]:
+        """Select members by type
+
+        Args:
+            cls: Type of attributes to select
+
+        Yields:
+            tuple containing attribute name and attribute of all attributes
+            with type 'cls'.
+        """
+        for k, v in vars(self).items():
+            if isinstance(v, cls):
+                yield k, v
+            elif isinstance(v, Record) and v is not self:
+                yield from v.select(cls)
 
     def index_tuple(self) -> Optional[tuple]:
         """Get index tuple
@@ -185,8 +202,8 @@ class Record(object):
         This default implementation works for non-nested classes only.
         Args:
              prefix: Prefix to add to all keys. Defaults to None
-             allow: Iterable of allowed values. If not ``None``, only names in
-                 this dictionary are included in the output. If a prefix is
+             allow: Allowed attribute names. If not ``None``, only names in
+                 this iterable are included in the output. If a prefix is
                  provided, then values must include the prefix.
 
         Returns:
