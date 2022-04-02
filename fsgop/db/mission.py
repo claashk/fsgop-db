@@ -99,6 +99,9 @@ class Mission(Record):
         self.charge_person = to(Person, charge_person, default=self.pilot)
         self.comments = to(str, comments, default=None)
 
+        if self.launch.key() == self.key():
+            self.launch = self  # avoid recursion
+
     def pic(self) -> Person:
         """Returns pilot in command
         """
