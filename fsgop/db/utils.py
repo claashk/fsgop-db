@@ -203,7 +203,7 @@ def set_value(key: str, value: Optional[str], s: str = "") -> str:
         return "; ".join([s, f"{key}='{value}'"]) if value is not None else s
 
 
-def kwargs_from(obj: object, layout: dict) -> dict:
+def kwargs_from(obj: object, layout: dict, *args) -> dict:
     """Extract nested keyword arguments from object based on a given structure
 
     Args:
@@ -212,12 +212,18 @@ def kwargs_from(obj: object, layout: dict) -> dict:
             output dictionary. The associated value will either be extracted
             using :func:`getattr` if the value is a string or by recursive
             invocation of :func:`kwargs_from`.
+        *args: Passed verbatim to getattr. Only use is to specify a default
+            value to return if an argument is not found.
+
+    Raises:
+        AttributeError if an attribute is not found and no default is specified.
 
     Returns:
          Possibly nested dictionary of keyword arguments
     """
     return {
-        k: getattr(obj, v) if isinstance(v, str) else kwargs_from(obj, v)
+        k: getattr(obj, v, *args)
+        if isinstance(v, str) else kwargs_from(obj, v, *args)
         for k, v in layout.items()
     }
 
