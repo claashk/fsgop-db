@@ -1,7 +1,7 @@
 from typing import Optional, Iterable, Generator, Tuple, NamedTuple, Union, Dict
 from typing import Type, List
 import re
-from collections import namedtuple, OrderedDict
+from collections import namedtuple
 from datetime import datetime, date
 from pathlib import Path
 from copy import deepcopy
@@ -627,12 +627,14 @@ class SchemaIterator(object):
         self._tables = list()
         self._index = -1
 
-    def __int__(self):
+    def __int__(self) -> int:
         return int(self._index)
 
     def __call__(self,
                  table: str,
-                 depth: int = -1) -> Generator["SchemaIterator", None, None]:
+                 depth: Optional[int] = -1) -> Generator["SchemaIterator",
+                                                         None,
+                                                         None]:
         """Iterate over all columns of the specified table up to a maximum depth
 
         Args:
@@ -673,7 +675,7 @@ class SchemaIterator(object):
         """Get unique name for the current column"""
         return f"{self.unique_table_name}.{self.column.name}"
 
-    def parent(self, unique: bool = True) -> Optional[str]:
+    def parent(self, unique: Optional[bool] = True) -> Optional[str]:
         """Get name of table and column, by which this column is referenced
 
         Args:
@@ -695,15 +697,9 @@ class SchemaIterator(object):
                 retval = f"{table.name}.{col.name}"
         return retval
 
-    def to_dict(self, d):
-        _tmp = d if d is not None else dict()
-        for p in self._cols:
-            _tmp = _tmp.setdefault(p.name, dict())
-        return _tmp
-
     def _iter(self,
               table: str,
-              depth: int = -1)-> Generator["SchemaIterator", None, None]:
+              depth: int = -1) -> Generator["SchemaIterator", None, None]:
         """Iteration implementation
 
         Args:
