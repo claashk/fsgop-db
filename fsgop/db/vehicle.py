@@ -53,6 +53,25 @@ class Vehicle(Record):
             reg.name = "registration"
             reg.add_to(self)
 
+    @property
+    def registration(self) -> Optional[str]:
+        """Get registration of this vehicle
+
+        Returns:
+            Registration or ``None``, if no registration is defined
+
+        Raises:
+            ValueError if more than one registration property exists
+        """
+        regs = self["registration"]
+        if len(regs) > 1:
+            raise ValueError(
+                f"In vehicle {self}: Found multiple registrations: "
+                f"{', '.join(x.value for x in regs)}")
+        for p in regs:
+            return p.value
+        return None
+
 
 class VehicleProperty(Property):
     """Vehicle property implementation
