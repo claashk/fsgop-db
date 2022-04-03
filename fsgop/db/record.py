@@ -125,7 +125,8 @@ class Record(object):
             if isinstance(v, cls):
                 yield k, v
             elif isinstance(v, Record) and v is not self:
-                yield from v.select(cls)
+                for kk, vv in v.select(cls):
+                    yield f"{k}.{kk}", vv
 
     def index_tuple(self) -> Optional[tuple]:
         """Get index tuple
