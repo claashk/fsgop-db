@@ -6,6 +6,7 @@ import logging
 from io import StringIO
 
 from fsgop.db import Repository, SqliteDatabase
+from fsgop.db.vehicle import WINCH
 from fsgop.db.startkladde import schema_v3 as sk_schema
 
 
@@ -38,12 +39,21 @@ class RepositoryTestCase(unittest.TestCase):
                                       db=str(self.sk_path)) as db:
             pass
 
-        with Repository.from_startkladde(self.sk_path, self.db_path) as ctrl:
-            pass
+        with Repository.from_startkladde(self.sk_path, self.db_path) as repo:
+            missions = list(repo.add("vehicle_properties",
+                                     repo.read("missions"),
+                                     Repository.valid_during_mission))
+
+        self.assertEqual(6, len(missions))
+        for m in missions:
+            if m.vehicle.category != WINCH:
+                self.assertIn(m.vehicle.registration,
+                              ("D-1234", "D-2234", "D-EFGH"))
+
         out = self.out.getvalue()
         #print("Logger Output:", out)
         self.assertEqual(1,
-                         out.count("Inserted 3/3 records into table 'people'"))
+                         out.count("Inserted 4/4 records into table 'people'"))
         self.assertEqual(2,
                          out.count("Inserted 2/2 records into table "
                                    "'person_properties'"))

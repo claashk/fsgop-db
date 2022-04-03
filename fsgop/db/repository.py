@@ -1,12 +1,12 @@
 import logging
-from typing import Type, Iterable, Union
+from typing import Iterable, Union, Generator, Optional, Callable
 from pathlib import Path
 
-from .person import Person, PersonProperty
+from .person import Person, PersonProperty, Property
 from .vehicle import Vehicle, VehicleProperty
 from .mission import Mission
 from .sqlite_db import SqliteDatabase
-from .utils import Sequence, chunk
+from .utils import Sequence, chunk, kwargs_from
 from .record import Record
 from . import startkladde as sk
 from . native_schema import schema_v1
@@ -38,6 +38,7 @@ class Repository(object):
 
     def __init__(self, db: str) -> None:
         self._db = None
+        self._native_tables = {v: k for k, v in self.native_types.items()}
         if db:
             self.open(db)
 
@@ -56,6 +57,79 @@ class Repository(object):
             self._db.disconnect()
             self._db = None
 
+    def select(self,
+               table: str,
+               where: Optional[str] = None,
+               order: Optional[str] = None,
+               **kwargs) -> Generator[Record, None, None]:
+        _type = self.native_types[table]
+        layout = _type.layout()
+        for rec in self._db.select(table, where=where, order=order, **kwargs):
+            yield _type(**kwargs_from(rec, layout))
+
+    def read(self,
+             table: str,
+             where: Optional[str] = None,
+             order: Optional[str] = None,
+             **kwargs) -> Generator[Record, None, None]:
+        """Read (joined) records from database
+
+        Arguments:
+            table: Name of table to read from
+            where: Search string passed verbatim to
+                :meth:`~fsgop.db.database.Database.join`
+            order: Sort order. Passed verbatim to
+                :meth:`~fsgop.db.database.Database.join`
+            **kwargs: Parameters for safe value substitution. Passed verbatim to
+                :meth:`~fsgop.db.database.Database.join`
+
+        Yields:
+            Native type representation of matching records
+        """
+        _type = self.native_types[table]
+        layout = _type.layout()
+        for rec in self._db.join(table,
+                                 where=where,
+                                 order=order,
+                                 depth=2,
+                                 **kwargs):
+            yield _type(**kwargs_from(rec, layout, None))
+
+    def add(self,
+            table: str,
+            recs: Iterable[Record],
+            filter: Optional[Callable] = None) -> Generator[Record, None, None]:
+        """Add properties to records
+
+        Args:
+            table: Name of table containing the properties
+            recs: Iterable of records
+            filter: Callable accepting a property and a record as instance and
+                returning a boolean. Properties will only be added to records, if
+                the callable returns True for the respective property, record
+                combination. Passing ``None`` results in no filter.
+                Defaults to ``None``.
+
+        Yields:
+            Modified records
+        """
+        ptype = self.native_types[table]  # property type
+        layout = ptype.layout()
+        column = table.split("_")[0]  # "person" or "vehicle"
+
+        # get type of record accepting the properties
+        rtable = self._db.schema[table].get_column(column).ref_info[0]
+        rtype = self.native_types[rtable]
+
+        for rec in recs:
+            dest = {v.uid: v for k, v in rec.select(rtype)}
+            where = f"{column} IN ({','.join(map(str, dest.keys()))})"
+            for prec in self._db.select(table, where=where):
+                property = ptype(**kwargs_from(prec, layout))
+                if filter is None or filter(property, rec):
+                    property.add_to(dest[property.rec])
+            yield rec
+
     def insert(self, recs: Iterable[Record], force: bool = False) -> tuple:
         """Insert native data records into database
 
@@ -70,7 +144,7 @@ class Repository(object):
         if not _recs:
             return 0, 0
 
-        table = self._get_table(_recs.element_type)
+        table = self._native_tables[_recs.element_type]
         rectype = self._db.schema[table].record_type
         col_types = self._db.schema[table].column_types
         nrec = 0
@@ -80,6 +154,7 @@ class Repository(object):
             batch = list(items)
             # TODO records could be incomplete if uids are missing
             # -> add a method complete(db) to Record, which completes the record
+            # or consider adding constraint, that records have to be complete
             self._db.insert(table,
                             (r.to(rectype, col_types) for r in batch),
                             force=force)
@@ -100,23 +175,6 @@ class Repository(object):
 
     def commit(self):
         self._db.commit()
-
-    def _get_table(self, t: Type) -> str:
-        """Get table for a given native datatype
-
-        Args:
-            t: Native data type
-
-        Return:
-            Name of table storing elements of type t
-
-        Raises:
-            KeyError: If type is not recognised
-        """
-        for k, v in self.native_types.items():
-            if t is v:
-                return k
-        raise KeyError(f"No native type found for {t}")
 
     @classmethod
     def new(cls, path):
@@ -144,15 +202,33 @@ class Repository(object):
             New database with native schema
         """
         try:
-            with sk.Repository(path) as src, cls.new(db) as dest:
-                dest.insert(src.persons(), force=True)
-                dest.insert(src.vehicles(), force=True)
-                dest.insert(src.missions(), force=True)
+            with sk.Repository(path) as src:
+                dest = cls.new(db)
+                dest.insert(src.persons(), force=True) # TODO check why force is required here
+                dest.insert(src.vehicles(), force=False)
+                dest.insert(src.missions(), force=False)
                 dest.commit()  # without this, nothing gets written!
                 return dest
         except:
+            dest.close()
             try:
                 Path(db).unlink()
             except FileNotFoundError:
                 pass
             raise
+
+    @staticmethod
+    def valid_during_mission(property: Property, mission: Mission) -> bool:
+        """Filter function usable in combination with add
+
+        Args:
+            property: Property record
+            mission: Mission record
+
+        Returns:
+            True if property is valid during the mission.
+        """
+        return (
+                (mission.begin is None or mission.begin >= property.valid_from)
+                and
+                (mission.end is None or mission.end <= property.valid_until))
