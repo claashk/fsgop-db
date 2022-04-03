@@ -3,16 +3,17 @@
 import csv
 from collections import namedtuple
 import re
+from pathlib import Path
 
 try:
-    from openpyxl import load_workbook
+    from openpyxl import load_workbook, Workbook
     WITH_XLSX_SUPPORT = True
 except ImportError:
     WITH_XLSX_SUPPORT = False
 
 
 class Xlsx2Csv(object):
-    """Adapter for Excel files to expose same interface as csv reader
+    """Adapter for Excel files to expose same interface as csv reader / writer
 
     Arguments:
         path (str): path to Excel xlsv file
@@ -25,9 +26,11 @@ class Xlsx2Csv(object):
 
     NUMBER_FORMAT_PATTERN = re.compile(r"([#0?]*)(?:\.([#0?]*)(E\+0+)?)?")
 
-    def __init__(self, path=None, sheet=None, read_only=True, **kwargs):
+    def __init__(self, path=None, sheet=None, read_only=None, **kwargs):
         self._wb = None
         self._ws = None
+        self._path = None
+        self._read_only = True
 
         if path is not None:
             self.open(path, sheet=sheet, read_only=read_only, **kwargs)
@@ -36,10 +39,7 @@ class Xlsx2Csv(object):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._ws = None
-        if self._wb is not None:
-            self._wb.close()
-            self._wb = None
+        self.close()
 
     def __iter__(self):
         """Iterate over all rows of the input file
@@ -49,11 +49,27 @@ class Xlsx2Csv(object):
         """
         yield from self.iter_rows()
 
-    def open(self, path, sheet=None, read_only=True, **kwargs):
+    def open(self, path, sheet=None, read_only=None, **kwargs):
         if not WITH_XLSX_SUPPORT:
             raise RuntimeError("Missing package: openpyxl")
-        self._wb = load_workbook(path, read_only=read_only, **kwargs)
+        self._path = Path(path)
+
+        if not self._path.exists():
+            self._read_only = bool(read_only) if read_only is not None else False
+            self._wb = Workbook()
+        else:
+            self._read_only = bool(read_only) if read_only is not None else True
+            self._wb = load_workbook(path, read_only=self._read_only, **kwargs)
         self.open_sheet(sheet)
+
+    def close(self):
+        self._ws = None
+        if self._wb is not None:
+            if not self._read_only:
+                self._wb.save(str(self._path))
+            self._wb.close()
+            self._wb = None
+            self._path = None
 
     def open_sheet(self, sheet=None):
         if self._wb is None:
@@ -62,6 +78,9 @@ class Xlsx2Csv(object):
             self._ws = self._wb.get_sheet_by_name(sheet)
         else:
             self._ws = self._wb.worksheets[0]
+
+    def writerow(self, row):
+        self._ws.append(row)
 
     def iter_rows(self):
         if self._wb is None or self._ws is None:
