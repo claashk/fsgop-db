@@ -1,4 +1,5 @@
-from typing import Optional, List
+from typing import Optional, List, Union
+from pathlib import Path
 import sqlite3
 from .database import Database, to_schema
 from .table_info import TableInfo, ColumnInfo, IndexInfo
@@ -12,7 +13,7 @@ class SqliteDatabase(Database):
         schema: Schema in dictionary form.
     """
     def __init__(self,
-                 db: Optional[str] = None,
+                 db: Union[str, Path, None] = None,
                  schema: Optional[dict] = None,
                  **kwargs) -> None:
         super().__init__(db=db, schema=schema, **kwargs)
