@@ -33,16 +33,17 @@ class SpreadsheetViewTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.keep_artifacts = True
         self.csv_path = DATA_DIR.parent / "spreadsheet_view_test.csv"
+        self.xlsx_path = self.csv_path.with_suffix(".xlsx")
 
     def tearDown(self) -> None:
         if not self.keep_artifacts:
-            for p in (self.csv_path, ):
+            for p in (self.csv_path, self.xlsx_path):
                 try:
                     p.unlink()
                 except FileNotFoundError:
                     pass
 
-    def test_csv_export(self):
+    def test_export(self):
         columns = [
             "pilot.last_name",
             "pilot.first_name",
@@ -60,9 +61,13 @@ class SpreadsheetViewTestCase(unittest.TestCase):
         }
 
         view = SpreadsheetView(columns=columns, fmt=fmt)
-        view(self.repo.add("vehicle_properties",
-                           self.repo.read("missions", order="missions.begin")),
-             self.csv_path)
+        for path in (self.csv_path, self.xlsx_path):
+            view(self.repo.add("vehicle_properties",
+                               self.repo.read("missions",
+                                              order="missions.begin,"
+                                                    "missions.end")),
+                 path)
+            #TODO -> need some checks here
 
 
 def suite():
