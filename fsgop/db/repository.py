@@ -83,7 +83,9 @@ class Repository(object):
             Record instances matching the query.
         """
         _type = self.native_types[table]
-        layout = _type.layout()
+        rectype = self._db.schema[table].record_type
+        layout = _type.layout(allow=rectype._fields)
+
         for rec in self._db.select(table, where=where, order=order, **kwargs):
             yield _type(**kwargs_from(rec, layout))
 
@@ -130,9 +132,9 @@ class Repository(object):
             return
 
         _type = recs.element_type
-        layout = _type.layout()
         table = self._native_tables[_type]
         rectype = self._db.schema[table].record_type
+        layout = _type.layout(allow=rectype._fields)
         col_types = self._db.schema[table].column_types
         _where = " and ".join(f"{k}={self._db.var(k + '_')}"
                               for k in _type.index)
@@ -185,6 +187,29 @@ class Repository(object):
                 if allow is None or allow(_property, rec):
                     _property.add_to(dest[_property.rec])
             yield rec
+
+    def replace(self, records: Iterable[Record], replacement: Record) -> None:
+        """Replaces a number of records by another record in all tables
+
+        Args:
+            records: Iterable of records to be replaced. These records will be
+                deleted upon successful completion
+            replacement: The record replacing the deleted records.
+        """
+        table = self._native_tables[type(replacement)]
+        keep_uid = replacement.uid
+        if keep_uid is None:
+            keep_uid = next(self.find([replacement])).uid
+
+        for rec in records:
+            assert self._native_tables[type(rec)] == table
+            uid = rec.uid
+            if rec.uid is None:
+                uid = next(self.find([rec])).uid
+            logger.debug(f"Replacing record {uid} in table '{table}' by rec "
+                         f"{keep_uid}")
+            self._db.replace(table, where=f"uid={int(uid)}", by=keep_uid)
+
 
     def insert(self, records: Iterable[Record], force: bool = False) -> tuple:
         """Insert native data records into database

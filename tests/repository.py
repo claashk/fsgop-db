@@ -5,20 +5,38 @@ from pathlib import Path
 import logging
 from io import StringIO
 
-from fsgop.db import Repository, SqliteDatabase
+from fsgop.db import Repository, SqliteDatabase, Person
 from fsgop.db.vehicle import WINCH
 from fsgop.db.startkladde import schema_v3 as sk_schema
 
 
 DATA_DIR = Path(__file__).parent / "startkladde-dump"
+DB_PATH = DATA_DIR.parent / "repo_test.sqlite3"
+STARTKLADDE_DB_PATH = DB_PATH.parent / "native_sk_db.sqlite3"
+
 logger = logging.getLogger()
 
 
 class RepositoryTestCase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.keep_artifacts = False
+        with SqliteDatabase.from_dump(DATA_DIR,
+                                      schema=sk_schema,
+                                      db=str(STARTKLADDE_DB_PATH)) as db:
+            pass
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        if not cls.keep_artifacts:
+            try:
+                STARTKLADDE_DB_PATH.unlink()
+            except FileNotFoundError:
+                pass
+
     def setUp(self) -> None:
         self.keep_artifacts = True
-        self.db_path = DATA_DIR.parent / "repo_test.sqlite3"
-        self.sk_path = self.db_path.parent / "native_sk_db.sqlite3"
         self.out = StringIO()
         self.stream_handler = logging.StreamHandler(self.out)
         logger.addHandler(self.stream_handler)
@@ -27,19 +45,17 @@ class RepositoryTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         logger.removeHandler(self.stream_handler)
         if not self.keep_artifacts:
-            for p in (self.db_path, self.sk_path):
-                try:
-                    p.unlink()
-                except FileNotFoundError:
-                    pass
+            try:
+                DB_PATH.unlink()
+            except FileNotFoundError:
+                pass
+
+    def create_repo(self):
+        with Repository.from_startkladde(STARTKLADDE_DB_PATH, DB_PATH) as repo:
+            yield repo
 
     def test_startkladde_import(self):
-        with SqliteDatabase.from_dump(DATA_DIR,
-                                      schema=sk_schema,
-                                      db=str(self.sk_path)) as db:
-            pass
-
-        with Repository.from_startkladde(self.sk_path, self.db_path) as repo:
+        for repo in self.create_repo():
             missions = list(repo.add("vehicle_properties",
                                      repo.read("missions"),
                                      Repository.valid_during_mission))
@@ -58,6 +74,24 @@ class RepositoryTestCase(unittest.TestCase):
                          out.count("Inserted 2/2 records into table "
                                    "'person_properties'"))
 
+    def test_replace(self):
+        for repo in self.create_repo():
+            people = list(repo.select("people", where="first_name='Willi'"))
+            self.assertEqual(1, len(people))
+            missions = list(repo.read("missions",
+                                      where=f"missions.copilot={people[0].uid}"))
+            self.assertGreater(len(missions), 0)
+
+            recs = [Person(last_name="Wright", first_name="Willi")]
+            replacement = Person(last_name="Wright", first_name="Wilbur")
+            repo.replace(recs, replacement)
+
+            new_people = list(repo.select("people", where="first_name='Willi'"))
+            self.assertEqual(0, len(new_people))
+
+            new_guy = next(repo.find([replacement])).uid
+            for m in repo.find(missions):
+                self.assertEqual(new_guy, int(m.copilot))
 
 def suite():
     """Get Test suite object
