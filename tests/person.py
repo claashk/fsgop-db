@@ -166,6 +166,12 @@ class PersonTestCase(unittest.TestCase):
         m2 = PersonProperty(name="Membership",
                             value="Club1 (honorary)",
                             valid_from=datetime(1930, 1, 1))
+        self.assertFalse(person.has_properties)
+        spl.add_to(person)
+        self.assertTrue(person.has_properties)
+        PersonProperty.discard_from(person, spl.name)
+        self.assertFalse(person.has_properties)
+
         spl.add_to(person)
         ppl.add_to(person)
         ppl.add_to(person)

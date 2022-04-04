@@ -111,6 +111,15 @@ class Record(object):
         for v in self._properties.values():
             yield from v
 
+    @property
+    def has_properties(self) -> bool:
+        """Check if this record has any properties
+
+        Return:
+            ``True`` if and only if this record has at least one property
+        """
+        return any(p for p in self._properties.values())
+
     def select(self, cls) -> Iterator[tuple]:
         """Select members by type
 
