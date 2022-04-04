@@ -5,6 +5,7 @@ from datetime import datetime, date
 from pathlib import Path
 
 from fsgop.db import TableInfo, ColumnInfo, IndexInfo, Person, sort_tables
+from fsgop.db.table_info import dependencies
 from fsgop.db import SchemaIterator
 from fsgop.db import to_schema
 from fsgop.db.startkladde import schema_v3
@@ -201,6 +202,22 @@ class TableInfoTestCase(unittest.TestCase):
                                  refs[colname])
             else:
                 self.assertNotIn(col.name, refs.keys())
+
+    def test_dependencies(self):
+        schema = self.get_schema(native=True)
+        result = dict()
+        for col, ref_table, ref_col in dependencies(schema, "people"):
+            result.setdefault(col, set()).add((ref_table, ref_col))
+
+        self.assertEqual(1, len(result))
+        refs = result['uid']
+        self.assertIn(("missions", "charge_person"), refs)
+        self.assertIn(("missions", "pilot"), refs)
+        self.assertIn(("missions", "copilot"), refs)
+        for i in range(4):
+            self.assertIn(("missions", f"passenger{i+1}"), refs)
+        self.assertIn(("person_properties", "person"), refs)
+
 
 
 def suite():

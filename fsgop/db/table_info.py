@@ -10,7 +10,7 @@ from .table_io import CsvParser
 
 
 class ColumnInfo(object):
-    """Stores meta data for a column of a (MySQL) Table
+    """Stores metadata for a column of a (MySQL) Table
 
     Args:
         name: Column name
@@ -288,7 +288,7 @@ class IndexInfo(object):
 
 
 class TableInfo(object):
-    """Stores meta data for a (MySql) table
+    """Stores metadata for a (MySql) table
 
     Args:
         name: Name of this table
@@ -559,11 +559,11 @@ class TableInfo(object):
         """
         if reader is None:
             reader = CsvParser()
-        Rec = self.create_record_type(aliases=aliases)
+        _rec = self.create_record_type(aliases=aliases)
         parsers = tuple(col._parser for col in self._cols)
 
         for rec in reader(str(path), skip_rows=0, delimiter="\t"):
-            yield Rec(*(p(x) for p, x in zip(parsers, rec)))
+            yield _rec(*(p(x) for p, x in zip(parsers, rec)))
 
 
 def sort_tables(tables: Iterable[TableInfo]) -> List[TableInfo]:
@@ -592,6 +592,31 @@ def sort_tables(tables: Iterable[TableInfo]) -> List[TableInfo]:
             _unsorted.remove(name)
 
     return [_tables[k] for k in _sorted]
+
+
+def dependencies(schema: dict, table: str) -> Generator[tuple, None, None]:
+    """Iterate over tables & columns referencing a column in the specified table
+
+    Finds all tables and columns in the given schema which reference a column of
+    the specified table.
+
+    Args:
+        schema: Schema
+        table: Name of table for which dependencies shall be checked
+
+    Yields:
+        Tuple containing:
+        * name of referenced column in *table*
+        * name of referencing table
+        * name of referencing column in referencing table
+    """
+    if table not in schema.keys():
+        raise ValueError(f"No such table in schema: '{table}'")
+    for table_name, table_info in schema.items():
+        for col in table_info:
+            _table, _col = col.ref_info
+            if _table == table:
+                yield _col, table_name, col.name
 
 
 def to_schema(d: Dict[str, Union[TableInfo, dict]]) -> Dict[str, TableInfo]:
