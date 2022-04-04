@@ -419,12 +419,16 @@ class Database(object):
             raise KeyError(f"Found no result matching '{where}' (with {kwargs})")
         return retval
 
-    def unique_id(self, name: str, uid: int) -> NamedTuple:
+    def unique_id(self,
+                  name: str,
+                  uid: int,
+                  rectype: Optional[Any] = None) -> NamedTuple:
         """Get unique result of a query
         
         Args:
             name: Table name
             uid: ID of item to select
+            rectype: Record type. Passed verbatim to meth:`Database.select`
         
         Return:
             Record with specified uid
@@ -433,7 +437,9 @@ class Database(object):
             KeyError if no unique matching record can be found
         """
         id_col = self.schema[name].id_column
-        return self.unique(name, where=f"{id_col}={int(uid)}")
+        return self.unique(name,
+                           where=f"{id_col}={int(uid)}",
+                           rectype=rectype)
 
     def replace(self, name: str, where: str, by: int) -> None:
         """Replace records with another existing record
@@ -520,7 +526,7 @@ class Database(object):
 
         database = cls(db)
         reader = CsvParser()
-
+        table_src = ""
         try:
             database.reset(schema)
             for table in sort_tables(database.schema.values()):
