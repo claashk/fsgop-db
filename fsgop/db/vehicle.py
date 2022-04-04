@@ -87,6 +87,8 @@ class VehicleProperty(Property):
         name: Name of this property
         value: Property value
     """
+    index = [x if x != "rec" else "vehicle" for x in Property.index]
+
     def __init__(self,
                  uid: Optional[int] = None,
                  vehicle: Optional[Union[Vehicle, int]] = None,

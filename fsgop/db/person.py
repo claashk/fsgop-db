@@ -145,6 +145,8 @@ class PersonProperty(Property):
         name: Name of this property
         value: Property value
     """
+    index = [x if x != "rec" else "person" for x in Property.index]
+
     def __init__(self,
                  uid: Optional[int] = None,
                  person: Optional[Union[Person, int]] = None,
