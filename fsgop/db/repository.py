@@ -115,6 +115,42 @@ class Repository(object):
                                  **kwargs):
             yield _type(**kwargs_from(rec, layout, None))
 
+    def find(self, records: Iterable[Record]) -> Generator[Record, None, None]:
+        """Find records in the database
+
+        Args:
+            records: Iterable of (incomplete) records containing information used
+                to search the database.
+
+        Yields:
+            Matching database record for each record in *records*.
+        """
+        recs = Sequence(records)
+        if not recs:
+            return
+
+        _type = recs.element_type
+        layout = _type.layout()
+        table = self._native_tables[_type]
+        rectype = self._db.schema[table].record_type
+        col_types = self._db.schema[table].column_types
+        _where = " and ".join(f"{k}={self._db.var(k + '_')}"
+                              for k in _type.index)
+
+        for rec in recs:
+            if rec.uid is not None:
+                t = self._db.unique_id(table, rec.uid, rectype=rectype)
+            else:
+                # convert to native record to make sure we are dealing with
+                # correct types for each column
+                db_rec = rec.to(rectype, col_types)
+                kwargs = {f"{k}_": getattr(db_rec, k) for k in _type.index}
+                t = self._db.unique(table,
+                                    where=_where,
+                                    rectype=rectype,
+                                    **kwargs)
+            yield _type(**kwargs_from(t, layout, None))
+
     def add(self,
             table: str,
             recs: Iterable[Record],
@@ -150,27 +186,27 @@ class Repository(object):
                     property.add_to(dest[property.rec])
             yield rec
 
-    def insert(self, recs: Iterable[Record], force: bool = False) -> tuple:
+    def insert(self, records: Iterable[Record], force: bool = False) -> tuple:
         """Insert native data records into database
 
         Args:
-            recs: Iterable of records to insert
+            records: Iterable of records to insert
             force: If ``True``, existing records are replaced. Defaults to
               ``False``.
         Returns:
             number of records inserted and number of properties inserted
         """
-        _recs = Sequence(recs)
-        if not _recs:
+        recs = Sequence(records)
+        if not recs:
             return 0, 0
 
-        table = self._native_tables[_recs.element_type]
+        table = self._native_tables[recs.element_type]
         rectype = self._db.schema[table].record_type
         col_types = self._db.schema[table].column_types
         nrec = 0
         nins = 0
         n = self._db.count(table)
-        for items in chunk(_recs, 1024):
+        for items in chunk(recs, 1024):
             batch = list(items)
             # TODO records could be incomplete if uids are missing
             # -> add a method complete(db) to Record, which completes the record
@@ -184,12 +220,13 @@ class Repository(object):
             nins += (_n - n)
             n = _n
             nrec += len(batch)
+
+            missing_uids = [r for r in batch
+                            if r.uid is None and r.has_properties]
+            for r, _r in zip(missing_uids, self.find(missing_uids)):
+                r.uid = _r.uid
             for r in batch:
-                properties = list(r.properties)
-                if properties:
-                    if r.uid is None:
-                        r.uid = r.search_in(self._db, table).uid
-                    self.insert(properties, force=force)
+                self.insert(r.properties, force=force)
         logging.info(f"Inserted {nins}/{nrec} records into table '{table}'")
         return nrec, nins
 
