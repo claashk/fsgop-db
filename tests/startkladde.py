@@ -3,12 +3,15 @@
 import unittest
 from pathlib import Path
 from datetime import timedelta
+import logging
+from io import StringIO
 
 from fsgop.db import SqliteDatabase, Property
 import fsgop.db.startkladde as sk
 
 
 DATA_DIR = Path(__file__).parent / "startkladde-dump"
+logger = logging.getLogger()
 
 
 class StartkladdeTestCase(unittest.TestCase):
@@ -16,9 +19,17 @@ class StartkladdeTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.keep_artifacts = False
         self.db_path = DATA_DIR.parent / "test_sk_import.sqlite3"
+        self.out = StringIO()
+        self.stream_handler = logging.StreamHandler(self.out)
+        for h in logger.handlers:
+            logger.removeHandler(h)
+        logger.addHandler(self.stream_handler)
+        logger.setLevel(logging.INFO)
+
         #self.db_path = ":memory:"
 
     def tearDown(self) -> None:
+        logger.removeHandler(self.stream_handler)
         if not self.keep_artifacts:
             try:
                 self.db_path.unlink()
@@ -30,8 +41,8 @@ class StartkladdeTestCase(unittest.TestCase):
                                       schema=sk.schema_v3,
                                       db=str(self.db_path)) as db:
             people = list(db.select("people"))
-            self.assertEqual(4, len(people))
-            self.assertListEqual([1, 2, 3, 79], [p.id for p in people])
+            self.assertEqual(5, len(people))
+            self.assertListEqual([1, 2, 3, 4, 79], [p.id for p in people])
             self.assertEqual(len(people), db.count("people"))
 
             planes = list(db.select("planes"))
@@ -39,7 +50,7 @@ class StartkladdeTestCase(unittest.TestCase):
             self.assertListEqual([1, 2, 10], [p.id for p in planes])
 
             flights = list(db.select("flights"))
-            self.assertEqual(3, len(flights))
+            self.assertEqual(4, len(flights))
 
             joined_flights = list(db.join("flights"))
             self.assertEqual(len(flights), len(joined_flights))

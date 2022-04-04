@@ -6,7 +6,7 @@ from tarfile import TarFile
 from collections import namedtuple
 
 from .table_info import TableInfo, IndexInfo, sort_tables, to_schema
-from .table_info import SchemaIterator
+from .table_info import SchemaIterator, dependencies
 from .table_io import CsvParser
 
 logger = logging.getLogger(__name__)
@@ -200,12 +200,11 @@ class Database(object):
             Matching table records
         """
         table = self.schema[name]
-        where_str = f" WHERE {where}" if where is not None else ""
-        order_str = f" ORDER BY {order}" if order else ""
+        _where = f" WHERE {where}" if where is not None else ""
+        _order = f" ORDER BY {order}" if order else ""
         _type = table.record_type if rectype is None else rectype
         cursor = self._db.cursor()
-        cursor.execute(f"SELECT * FROM {table.name}{where_str}{order_str}",
-                       kwargs)
+        cursor.execute(f"SELECT * FROM {table.name}{_where}{_order}", kwargs)
         for row in cursor:
             yield _type(*row)
 
@@ -287,8 +286,8 @@ class Database(object):
         where_str = f" WHERE {where}" if where is not None else ""
         order_str = f" ORDER BY {order}" if order else ""
         cursor = self._db.cursor()
-        cursor.execute(f"SELECT COUNT(*) FROM {table.name}{where_str}{order_str}",
-                       kwargs)
+        query = f"SELECT COUNT(*) FROM {table.name}{where_str}{order_str}"
+        cursor.execute(query, kwargs)
         return cursor.fetchone()[0]
 
     def insert(self,
@@ -312,7 +311,11 @@ class Database(object):
         cursor = self._db.cursor()
         cursor.executemany(command, rows)
 
-    def delete(self, name: str, where: Optional[str] = None, **kwargs) -> None:
+    def delete(self,
+               name: str,
+               where: Optional[str] = None,
+               parameters: Optional[Iterable[Union[dict, tuple]]] = None,
+               **kwargs) -> None:
         """Delete records from table                
         
         Args:
@@ -320,11 +323,20 @@ class Database(object):
             where: Passed verbatim to *SQL*'s ``WHERE`` clause to identify rows
                 to delete. If ``None`` or the empty string, all rows will be
                 deleted. Defaults to ``None``.
+            parameters: A sequence of parameters for parameterized deletes. If
+                specified, the where string needs to use a parameterized query
+                and the sequence shall yield the associated parameter sets.
+                No keyword arguments are allowed if sequence is specified.
             **kwargs: Variables inserted into the where string.
         """
         _where = f" WHERE {where}" if where is not None else ""
+        query = f"DELETE FROM {name}{_where}"
         cursor = self._db.cursor()
-        cursor.execute(f"DELETE FROM {name}{_where}", kwargs)
+        if parameters is None:
+            cursor.execute(query, kwargs)
+        else:
+            assert not kwargs
+            cursor.executemany(query, parameters)
 
     def delete_ids(self, name: str, ids: Iterable[int]) -> None:
         """Delete records by id
@@ -334,15 +346,16 @@ class Database(object):
             ids: ids to be deleted. Each element should be convertible to an
                 integer.
         """
-        id_col = self.schema[name]._cols[0]
-        if ids:
-            idstr = ",".join(f"{int(x)}" for x in ids)
-            self.delete(name, where=f"{id_col} IN ({idstr})")
+        id_col = self.schema[name].id_column
+        self.delete(name,
+                    where=f"{id_col}={self.var('uid')}",
+                    parameters=({"uid": int(x)} for x in ids))
 
     def update(self,
                name: str,
                assignment: str,
                where: Optional[str] = None,
+               parameters: Optional[Iterable[Union[dict, tuple]]] = None,
                **kwargs) -> None:
         """Update value in table
         
@@ -353,12 +366,16 @@ class Database(object):
             assignment: Update information in format compatible with MySQL
                ``SET`` clause of ``UPDATE`` statement
             where: Optional filter string passed verbatim to ``WHERE`` statement.
+            parameters: A sequence of parameters for parameterized deletes. If
+                specified, the where string needs to use a parameterized query
+                and the sequence shall yield the associated parameter sets.
+                No keyword arguments are allowed if sequence is specified.
             **kwargs: Variables to be inserted into where string.
 
         Example:
-            Assuming *db* is a connected :class:`.db.Database` instance, the
-            following code replaces each occurence of the ``pilot_id`` 3 with a
-            ``pilot_id`` of 5 in table *Flights*:
+            Assuming *db* is a connected :class:`~fsgop.db.Database` instance,
+            the following code replaces each occurrence of the ``pilot_id`` 3
+            with a ``pilot_id`` of 5 in table *Flights*:
         
             .. code-block:: python
             
@@ -368,8 +385,13 @@ class Database(object):
         """
         table = self.schema[name]
         _where = f" WHERE {where}" if where else ""
-        cursor = self._db.cursor
-        cursor.execute(f"UPDATE {table.name} SET {assignment}{_where}", kwargs)
+        query = f"UPDATE {table.name} SET {assignment}{_where}"
+        cursor = self._db.cursor()
+        if parameters is None:
+            cursor.execute(query, kwargs)
+        else:
+            assert not kwargs
+            cursor.executemany(query, parameters)
 
     def unique(self, name: str, where: str, **kwargs) -> NamedTuple:
         """Get unique result of a query
@@ -410,8 +432,31 @@ class Database(object):
         Raises:
             KeyError if no unique matching record can be found
         """
-        id_col = self.schema[name].columns[0]
+        id_col = self.schema[name].id_column
         return self.unique(name, where=f"{id_col}={int(uid)}")
+
+    def replace(self, name: str, where: str, by: int) -> None:
+        """Replace records with another existing record
+
+        Args:
+            name: Name of table in which to replace records
+            where: Search string defining the records to be replaced. All records
+                in table *name* matching this query are replaced.
+            by: UID of record used as replacement
+        """
+        uid = int(by)
+        id_col = self.schema[name].id_column
+        uids = []
+        new_rec = self.unique_id(name, uid)
+        for rec in self.select(name, where=where):
+            for local_col, ref_table, ref_col in dependencies(self.schema, name):
+                self.update(ref_table,
+                            f"{ref_col}='{getattr(new_rec, local_col)}'",
+                            where=f"{ref_col}='{getattr(rec, local_col)}'")
+                uids.append(getattr(rec, id_col))
+        if uid in uids:
+            uids.remove(uid)
+        self.delete_ids(name, uids)
 
     def max_id(self, name: str) -> int:
         """Get current maximum ID (beware of race conditions)

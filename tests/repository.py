@@ -44,7 +44,7 @@ class RepositoryTestCase(unittest.TestCase):
                                      repo.read("missions"),
                                      Repository.valid_during_mission))
 
-        self.assertEqual(6, len(missions))
+        self.assertEqual(7, len(missions))
         for m in missions:
             if m.vehicle.category != WINCH:
                 self.assertIn(m.vehicle.registration,
@@ -53,8 +53,8 @@ class RepositoryTestCase(unittest.TestCase):
         out = self.out.getvalue()
         #print("Logger Output:", out)
         self.assertEqual(1,
-                         out.count("Inserted 4/4 records into table 'people'"))
-        self.assertEqual(2,
+                         out.count("Inserted 5/5 records into table 'people'"))
+        self.assertEqual(3,
                          out.count("Inserted 2/2 records into table "
                                    "'person_properties'"))
 
