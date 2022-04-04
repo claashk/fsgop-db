@@ -19,14 +19,14 @@ class Repository(object):
 
     The repository is an intermediate layer between database and application (
     controllers, views). It wraps a database with a given schema and allows I/O
-    operations using the native datamodel (Person, Vehicle, Mission). This
+    operations using the native datamodel (Person, Vehicle, Mission, ...). This
     is the main distinction to the database, which works data model agnostic and
     uses only tuples and the native schema for I/O operations.
 
     The repository can be used as context manager.
 
     Args:
-        db: database
+        db: Path to sqlite database file
     """
     native_types = {
         "people": Person,
@@ -36,7 +36,7 @@ class Repository(object):
         "missions": Mission
     }
 
-    def __init__(self, db: str) -> None:
+    def __init__(self, db: Union[str, Path]) -> None:
         self._db = None
         self._native_tables = {v: k for k, v in self.native_types.items()}
         if db:
@@ -48,11 +48,19 @@ class Repository(object):
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
-    def open(self, db: str, **kwargs) -> None:
+    def open(self, db: Union[str, Path], **kwargs) -> None:
+        """Open a database file
+
+        Args:
+            db: Path to sqlite3 database file
+            **kwargs: Keyword arguments passed verbatim to
+                :class:`~fsgop.db.SqliteDatabase` constructor
+        """
         self.close()
         self._db = SqliteDatabase(db=db, schema=schema_v1, **kwargs)
 
     def close(self):
+        """Close the underlying database (file)"""
         if self._db is not None:
             self._db.disconnect()
             self._db = None
@@ -62,6 +70,18 @@ class Repository(object):
                where: Optional[str] = None,
                order: Optional[str] = None,
                **kwargs) -> Generator[Record, None, None]:
+        """Select records from a table
+
+        Args:
+            table: Name of table to select from
+            where: SQL WHERE clause
+            order: SQL ORDER BY clause
+            **kwargs: Keyword arguments can be used to safely escape search
+                parameters.
+
+        Yields:
+            Record instances matching the query.
+        """
         _type = self.native_types[table]
         layout = _type.layout()
         for rec in self._db.select(table, where=where, order=order, **kwargs):
@@ -187,7 +207,7 @@ class Repository(object):
     def from_startkladde(cls,
                          path: Union[str, Path],
                          db: Union[str, Path]) -> "Repository":
-        """Create a new repository from a startkladde instance
+        """Create a new repository from a startkladde database file
 
         This constructor converts all data from the startkladde database into
         the native data model and then adds it to a new database, which acts as
@@ -204,7 +224,8 @@ class Repository(object):
         try:
             with sk.Repository(path) as src:
                 dest = cls.new(db)
-                dest.insert(src.persons(), force=True) # TODO check why force is required here
+                # TODO force required if uid is auto-set ?
+                dest.insert(src.persons(), force=True)
                 dest.insert(src.vehicles(), force=False)
                 dest.insert(src.missions(), force=False)
                 dest.commit()  # without this, nothing gets written!
@@ -218,17 +239,18 @@ class Repository(object):
             raise
 
     @staticmethod
-    def valid_during_mission(property: Property, mission: Mission) -> bool:
+    def valid_during_mission(prop: Property, mission: Mission) -> bool:
         """Filter function usable in combination with add
 
         Args:
-            property: Property record
+            prop: Property record
             mission: Mission record
 
         Returns:
             True if property is valid during the mission.
         """
-        return (
-                (mission.begin is None or mission.begin >= property.valid_from)
-                and
-                (mission.end is None or mission.end <= property.valid_until))
+        return bool(
+                   (mission.begin is None or mission.begin >= prop.valid_from)
+                   and
+                   (mission.end is None or mission.end <= prop.valid_until)
+        )
