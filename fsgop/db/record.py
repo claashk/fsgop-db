@@ -3,7 +3,6 @@ from collections import namedtuple
 from inspect import signature
 from datetime import datetime, date, time
 from .utils import to
-from .database import Database
 
 
 def _to(obj, cls):
@@ -177,28 +176,6 @@ class Record(object):
         if types is None:
             return rec
         return t(*(_to(xi, ti) for xi, ti in zip(rec, types)))
-
-    def search_in(self, db: Database, table: str) -> namedtuple:
-        """Search this record in the database
-
-        If this record has a uid, then the lookup will be by uid. If no uid
-        is specified, the record will be completed by the index.
-
-        Args:
-            db: Database to search
-            table: Name of table to search
-
-        Returns:
-            Matching database record.
-
-        Raises:
-            KeyError if no unique matching record is found
-        """
-        if self.uid is not None:
-            return db.unique_id(table, self.uid)
-        kwargs = {k: getattr(self, k) for k in self.index}
-        _where = " and ".join(f"{k}={db.var(k)}" for k in kwargs.keys())
-        return db.unique(table, where=_where, **kwargs)
 
     @classmethod
     def layout(cls, prefix: str = "", allow: Iterable[str] = None) -> dict:
