@@ -366,10 +366,11 @@ class Database(object):
             assignment: Update information in format compatible with MySQL
                ``SET`` clause of ``UPDATE`` statement
             where: Optional filter string passed verbatim to ``WHERE`` statement.
-            parameters: A sequence of parameters for parameterized deletes. If
-                specified, the where string needs to use a parameterized query
+            parameters: A sequence of parameters for parameterized updates. If
+                specified, the *where* string needs to use a parameterized query
                 and the sequence shall yield the associated parameter sets.
-                No keyword arguments are allowed if sequence is specified.
+                No other keyword-based variables are allowed in combination with
+                this argument.
             **kwargs: Variables to be inserted into where string.
 
         Example:

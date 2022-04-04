@@ -154,17 +154,17 @@ class Repository(object):
     def add(self,
             table: str,
             recs: Iterable[Record],
-            filter: Optional[Callable] = None) -> Generator[Record, None, None]:
+            allow: Optional[Callable] = None) -> Generator[Record, None, None]:
         """Add properties to records
 
         Args:
             table: Name of table containing the properties
             recs: Iterable of records
-            filter: Callable accepting a property and a record as instance and
-                returning a boolean. Properties will only be added to records, if
-                the callable returns True for the respective property, record
-                combination. Passing ``None`` results in no filter.
-                Defaults to ``None``.
+            allow: Callable accepting a :class:`~fsgop.db.Property` and a
+                :class:`~fsgop.db.Record` as arguments which returns a boolean.
+                Properties will only be added to records, if the callable returns
+                ``True`` for the respective property/record combination. Passing
+                ``None`` results in no filter. Defaults to ``None``.
 
         Yields:
             Modified records
@@ -181,9 +181,9 @@ class Repository(object):
             dest = {v.uid: v for k, v in rec.select(rtype)}
             where = f"{column} IN ({','.join(map(str, dest.keys()))})"
             for prec in self._db.select(table, where=where):
-                property = ptype(**kwargs_from(prec, layout))
-                if filter is None or filter(property, rec):
-                    property.add_to(dest[property.rec])
+                _property = ptype(**kwargs_from(prec, layout))
+                if allow is None or allow(_property, rec):
+                    _property.add_to(dest[_property.rec])
             yield rec
 
     def insert(self, records: Iterable[Record], force: bool = False) -> tuple:
