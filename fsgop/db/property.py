@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, Iterable, Type
 from datetime import datetime, MINYEAR, MAXYEAR
 from .record import Record, to
 
@@ -91,3 +91,31 @@ class Property(Record):
         else:
             erase = set(p for p in props if p.valid_from <= at < p.valid_until)
             props -= erase
+
+    @classmethod
+    def _layout_helper(cls,
+                       rec_cls: Type,
+                       prefix: str = "",
+                       allow: Optional[Iterable[str]] = None) -> dict:
+        """Helper to create layout of this class
+
+        Overrides the default implementation, which does not work for nested
+        data models.
+
+        Args:
+            rec_cls: Class of Record to which this property is associated
+            prefix: Prefix to add to all keys. Defaults to ``None``
+            allow: Iterable of allowed values. If not ``None``, only names in
+                this dictionary are included in the output. If a prefix is
+                provided, then values must include the prefix.
+
+        Returns:
+            Layout dictionary.
+        """
+        retval = super(Property, cls).layout(prefix=prefix, allow=allow)
+        rec_name = rec_cls.__name__.lower()
+        kwargs = rec_cls.layout(prefix=f"{prefix}{rec_name}_", allow=allow)
+        if kwargs:
+            retval[rec_name] = kwargs
+        return retval
+

@@ -1,6 +1,6 @@
 from .property import Property
 from .person import Person, PersonProperty, NameAdapter
-from .vehicle import Vehicle
+from .vehicle import Vehicle, VehicleProperty
 from .mission import Mission
 from .table_io import CsvParser
 from .table_info import ColumnInfo, TableInfo, IndexInfo, sort_tables, to_schema

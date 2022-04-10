@@ -165,6 +165,26 @@ class PersonProperty(Property):
     def person(self):
         return self.rec
 
+    @classmethod
+    def layout(cls,
+               prefix: str = "",
+               allow: Optional[Iterable[str]] = None) -> dict:
+        """Get layout of this class
+
+        Overrides the default implementation, which does not work for nested
+        data models.
+
+        Args:
+             prefix: Prefix to add to all keys. Defaults to None
+             allow: Iterable of allowed values. If not ``None``, only names in
+                 this dictionary are included in the output. If a prefix is
+                 provided, then values must include the prefix.
+
+        Returns:
+            Layout dictionary.
+        """
+        return cls._layout_helper(Person, prefix=prefix, allow=allow)
+
 
 class NameAdapter(object):
     """Replaces fields containing the name by firstname and lastname fields

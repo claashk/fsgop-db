@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
 import unittest
-from fsgop.db import Vehicle
+from fsgop.db import Vehicle, VehicleProperty
 from fsgop.db.utils import to
-
-from datetime import date
-from collections import namedtuple
 
 
 class VehicleTestCase(unittest.TestCase):
@@ -53,6 +50,16 @@ class VehicleTestCase(unittest.TestCase):
         v = to(Vehicle, 123)
         self.assertEqual(123, v.uid)
         self.assertEqual(123, int(v))
+
+    def test_property_layout(self):
+        layout = {"uid": "uid",
+                  "vehicle": Vehicle.layout(prefix="vehicle_"),
+                  "valid_from": "valid_from",
+                  "valid_until": "valid_until",
+                  "name": "name",
+                  "value": "value"}
+
+        self.assertDictEqual(layout, VehicleProperty.layout())
 
 
 def suite():

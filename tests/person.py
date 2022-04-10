@@ -200,6 +200,16 @@ class PersonTestCase(unittest.TestCase):
         person["Membership"].discard(p)
         self.assertEqual(1, len(person["Membership"]))
 
+    def test_property_layout(self):
+        layout = {"uid": "uid",
+                  "person": Person.layout(prefix="person_"),
+                  "valid_from": "valid_from",
+                  "valid_until": "valid_until",
+                  "name": "name",
+                  "value": "value"}
+
+        self.assertDictEqual(layout, PersonProperty.layout())
+
     def test_split_names(self):
         Rec = namedtuple("Rec",
                          ["pilot_name",
