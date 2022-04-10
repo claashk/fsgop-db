@@ -142,7 +142,7 @@ class PersonProperty(Property):
            valid since the dawn of time
         valid_until: Date after which this property expires. Use ``None`` to
            indicate that the property does not expire
-        name: Name of this property
+        kind: Kind of this property
         value: Property value
     """
     index = [x if x != "rec" else "person" for x in Property.index]
@@ -152,13 +152,13 @@ class PersonProperty(Property):
                  person: Optional[Union[Person, int]] = None,
                  valid_from: Optional[datetime] = None,
                  valid_until: Optional[datetime] = None,
-                 name: Optional[str] = None,
+                 kind: Optional[str] = None,
                  value: Optional[str] = None) -> None:
         super().__init__(uid=uid,
                          rec=to(Person, person, default=None),
                          valid_from=valid_from,
                          valid_until=valid_until,
-                         name=name,
+                         kind=kind,
                          value=value)
 
     @property

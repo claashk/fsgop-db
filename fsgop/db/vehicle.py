@@ -50,7 +50,7 @@ class Vehicle(Record):
                 reg = VehicleProperty(value=registration)
             else:
                 reg = registration
-            reg.name = "registration"
+            reg.kind = "registration"
             reg.add_to(self)
 
     @property
@@ -84,7 +84,7 @@ class VehicleProperty(Property):
            valid since the dawn of time
         valid_until: Date after which this property expires. Use ``None`` to
            indicate that the property does not expire
-        name: Name of this property
+        kind: Name of this property
         value: Property value
     """
     index = [x if x != "rec" else "vehicle" for x in Property.index]
@@ -94,13 +94,13 @@ class VehicleProperty(Property):
                  vehicle: Optional[Union[Vehicle, int]] = None,
                  valid_from: Optional[datetime] = None,
                  valid_until: Optional[datetime] = None,
-                 name: Optional[str] = None,
+                 kind: Optional[str] = None,
                  value: Optional[str] = None) -> None:
         super().__init__(uid=uid,
                          rec=to(Vehicle, vehicle, default=None),
                          valid_from=valid_from,
                          valid_until=valid_until,
-                         name=name,
+                         kind=kind,
                          value=value)
 
     @property

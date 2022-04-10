@@ -56,7 +56,7 @@ class VehicleTestCase(unittest.TestCase):
                   "vehicle": Vehicle.layout(prefix="vehicle_"),
                   "valid_from": "valid_from",
                   "valid_until": "valid_until",
-                  "name": "name",
+                  "kind": "kind",
                   "value": "value"}
 
         self.assertDictEqual(layout, VehicleProperty.layout())

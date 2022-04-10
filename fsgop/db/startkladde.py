@@ -711,12 +711,12 @@ class Repository(object):
         for rec, person in self.get("people", adapt_names=True):
             email = get_value(rec.comments, "email")
             if email is not None:
-                PersonProperty(name="email", value=email).add_to(person)
+                PersonProperty(kind="email", value=email).add_to(person)
                 person.comments = set_value("email", None, person.comments)
             if rec.medical_validity is not None:
                 t = datetime.strptime(rec.medical_validity, DATE_FORMAT)
                 t += timedelta(hours=24)  # valid on expiration date
-                PersonProperty(name="medical",
+                PersonProperty(kind="medical",
                                value="class 2",
                                valid_until=t).add_to(person)
             #TODO add property for club membership
@@ -768,7 +768,7 @@ class Repository(object):
             vehicle.serial_number = f"sk-plane-{rec.uid}"
             vehicle.category = categories[rec.category]
             if rec.club is not None:
-                VehicleProperty(name="operator", value=rec.club).add_to(vehicle)
+                VehicleProperty(kind="operator", value=rec.club).add_to(vehicle)
             yield vehicle
 
     def vehicles(self) -> Iterator[Vehicle]:
@@ -796,7 +796,7 @@ class Repository(object):
         for rec, mission in self.get("flights",
                                      adapt_names=True,
                                      order="departure_time"):
-            mission.category = categories[rec.type]
+            mission.kind = categories[rec.type]
             launch_vehicle = self.vehicle_for_launch_method(rec.launch_uid)
             if launch_vehicle.category == WINCH:
                 launch = self.winch_launch_for(mission, vehicle=launch_vehicle)

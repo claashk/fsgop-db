@@ -15,17 +15,17 @@ class Property(Record):
         valid_until: Date at which this property expires. Use ``None`` to
            indicate that the property does not expire. The property is not valid
            at this point in time.
-        name: Name of this property
+        kind: String describing the kind of this property
         value: Property value
     """
-    index = ["rec", "name", "valid_until", "value"]
+    index = ["rec", "kind", "valid_until", "value"]
 
     def __init__(self,
                  uid: Optional[int] = None,
                  rec: Optional[Union[Record, int]] = None,
                  valid_from: Optional[datetime] = None,
                  valid_until: Optional[datetime] = None,
-                 name: Optional[str] = None,
+                 kind: Optional[str] = None,
                  value: Optional[str] = None) -> None:
         super().__init__(uid=uid)
         self.rec = to(Record, rec, default=None)
@@ -35,7 +35,7 @@ class Property(Record):
         self.valid_until = to(datetime,
                               valid_until,
                               default=datetime(MAXYEAR, 12, 31, 23, 59))
-        self.name = to(str, name, default=None)
+        self.kind = to(str, kind, default=None)
         self.value = to(str, value, default=None)
 
     def add_to(self, rec: Record):
@@ -45,17 +45,17 @@ class Property(Record):
             rec: Record to which to add property
         """
         self.rec = rec
-        rec[self.name].add(self)
+        rec[self.kind].add(self)
 
     @staticmethod
     def get_from(rec: Record,
-                 name: str,
+                 kind: str,
                  at: Optional[datetime] = None) -> Optional["Property"]:
         """Get a single property by name and date
 
         Args:
             rec: Record to get property from
-            name: Name of the property to find
+            kind: Kind / name of the property to find
             at: Date at which this property is valid
 
         Returns:
@@ -65,27 +65,27 @@ class Property(Record):
             ValueError if more than one matching property is found
         """
         if at is not None:
-            m = tuple(p for p in rec[name] if p.valid_from <= at < p.valid_until)
+            m = tuple(p for p in rec[kind] if p.valid_from <= at < p.valid_until)
         else:
-            m = tuple(p for p in rec[name])
+            m = tuple(p for p in rec[kind])
         if not m:
             return None
         if len(m) > 1:
-            raise ValueError(f"Expected at most one {name} property, "
+            raise ValueError(f"Expected at most one {kind} property, "
                              f"found {len(m)}")
         return m[0]
 
     @staticmethod
-    def discard_from(rec: Record, name: str, at: Optional[datetime] = None):
+    def discard_from(rec: Record, kind: str, at: Optional[datetime] = None):
         """Remove property from a record
 
         Args:
             rec: Record from which to remove a property
-            name: Name of property to discard.
+            kind: Kind of property to discard.
             at: Date, at which property is valid. If not specified, all
                 properties with matching key are discarded.
         """
-        props = rec[name]
+        props = rec[kind]
         if at is None:
             props.clear()
         else:
@@ -118,4 +118,3 @@ class Property(Record):
         if kwargs:
             retval[rec_name] = kwargs
         return retval
-

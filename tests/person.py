@@ -157,19 +157,19 @@ class PersonTestCase(unittest.TestCase):
 
     def test_properties(self):
         person = Person(first_name="Otto", last_name="Lilienthal")
-        spl = PersonProperty(name="Licences", value="SPL 123456")
-        ppl = PersonProperty(name="Licences", value="PPL 321645")
-        m1 = PersonProperty(name="Membership",
+        spl = PersonProperty(kind="Licences", value="SPL 123456")
+        ppl = PersonProperty(kind="Licences", value="PPL 321645")
+        m1 = PersonProperty(kind="Membership",
                             value="Club1 (regular)",
                             valid_from=datetime(1900, 5, 1),
                             valid_until=datetime(1930, 1, 1))
-        m2 = PersonProperty(name="Membership",
+        m2 = PersonProperty(kind="Membership",
                             value="Club1 (honorary)",
                             valid_from=datetime(1930, 1, 1))
         self.assertFalse(person.has_properties)
         spl.add_to(person)
         self.assertTrue(person.has_properties)
-        PersonProperty.discard_from(person, spl.name)
+        PersonProperty.discard_from(person, spl.kind)
         self.assertFalse(person.has_properties)
 
         spl.add_to(person)
@@ -205,7 +205,7 @@ class PersonTestCase(unittest.TestCase):
                   "person": Person.layout(prefix="person_"),
                   "valid_from": "valid_from",
                   "valid_until": "valid_until",
-                  "name": "name",
+                  "kind": "kind",
                   "value": "value"}
 
         self.assertDictEqual(layout, PersonProperty.layout())
