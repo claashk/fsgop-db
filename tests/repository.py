@@ -10,8 +10,8 @@ from fsgop.db.vehicle import WINCH
 from fsgop.db.startkladde import schema_v3 as sk_schema
 
 
-DATA_DIR = Path(__file__).parent / "startkladde-dump"
-DB_PATH = DATA_DIR.parent / "repo_test.sqlite3"
+DATA_DIR = Path(__file__).parent / "test-data" / "startkladde-dump"
+DB_PATH = DATA_DIR.parent.parent / "artifacts" / "repo_test.sqlite3"
 STARTKLADDE_DB_PATH = DB_PATH.parent / "native_sk_db.sqlite3"
 
 logger = logging.getLogger()

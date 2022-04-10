@@ -232,7 +232,6 @@ class Database(object):
             Joined records
         """
         traverse = SchemaIterator(self.schema)
-
         fields = []
         cols = []
         joins = []

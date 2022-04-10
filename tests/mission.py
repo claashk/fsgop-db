@@ -11,11 +11,11 @@ class MissionTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         self.person1 = Person(first_name="Otto",
-                             last_name="Prof. Dr. Lilienthal",
-                             birthday="1848-05-23")
+                              last_name="Prof. Dr. Lilienthal",
+                              birthday="1848-05-23")
         self.person2 = Person(first_name="Robert Hutchings",
-                             last_name="Goddard",
-                             birthday="1882-10-05")
+                              last_name="Goddard",
+                              birthday="1882-10-05")
         self.vehicle = Vehicle(manufacturer="Gulfstream",
                                model="G-550",
                                num_seats=7,

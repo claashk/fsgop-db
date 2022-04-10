@@ -13,7 +13,7 @@ from fsgop.db.native_schema import schema_v1
 from fsgop.db.utils import kwargs_from
 
 
-TEST_DIR = Path(__file__).parent
+TEST_DIR = Path(__file__).parent / "test-data"
 
 
 class TableInfoTestCase(unittest.TestCase):
@@ -217,7 +217,6 @@ class TableInfoTestCase(unittest.TestCase):
         for i in range(4):
             self.assertIn(("missions", f"passenger{i+1}"), refs)
         self.assertIn(("person_properties", "person"), refs)
-
 
 
 def suite():

@@ -10,8 +10,8 @@ from pathlib import Path
 
 
 TEST_DIR = Path(__file__).parent
-DB_PATH = TEST_DIR / "test_sqlite_db.db"
-DATA_PATH = TEST_DIR / "startkladde-dump"
+DB_PATH = TEST_DIR / "artifacts" / "test_sqlite_db.db"
+DATA_PATH = TEST_DIR / "test-data" / "startkladde-dump"
 logger = logging.getLogger()
 
 

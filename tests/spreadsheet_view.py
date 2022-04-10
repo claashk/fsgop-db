@@ -7,14 +7,15 @@ from fsgop.db import SpreadsheetView, SqliteDatabase, Repository
 from fsgop.db.startkladde import schema_v3 as sk_schema
 
 
-DATA_DIR = Path(__file__).parent / "startkladde-dump"
+DATA_DIR = Path(__file__).parent / "test-data" / "startkladde-dump"
 
 
 class SpreadsheetViewTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.temp_db = DATA_DIR.parent / "spreadsheet_view_tmp.sqlite3"
-        cls.db_path = DATA_DIR.parent / "spreadsheet_view_db.sqlite3"
+        odir = DATA_DIR.parent.parent / "artifacts"
+        cls.temp_db = odir / "spreadsheet_view_tmp.sqlite3"
+        cls.db_path = odir / "spreadsheet_view_db.sqlite3"
         with SqliteDatabase.from_dump(DATA_DIR,
                                       schema=sk_schema,
                                       db=str(cls.temp_db)) as db:
@@ -32,7 +33,7 @@ class SpreadsheetViewTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         self.keep_artifacts = True
-        self.csv_path = DATA_DIR.parent / "spreadsheet_view_test.csv"
+        self.csv_path = self.db_path.parent / "spreadsheet_view_test.csv"
         self.xlsx_path = self.csv_path.with_suffix(".xlsx")
 
     def tearDown(self) -> None:

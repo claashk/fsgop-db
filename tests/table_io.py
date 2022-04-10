@@ -14,7 +14,7 @@ class TableIOTestCase(unittest.TestCase):
         """Set up test parameters
         """
         # Make sure path works for different CWDs
-        self.test_dir = Path(__file__).parent
+        self.test_dir = Path(__file__).parent / "test-data"
 
     def test_startkladde_csv(self):
         reader = CsvParser(headings=["Pilot Vorname", "Pilot Nachname"],

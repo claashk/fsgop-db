@@ -313,6 +313,3 @@ class CsvParser(object):
     @staticmethod
     def _tuple(*args):
         return args
-
-
-

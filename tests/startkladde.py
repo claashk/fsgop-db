@@ -10,7 +10,7 @@ from fsgop.db import SqliteDatabase, Property
 import fsgop.db.startkladde as sk
 
 
-DATA_DIR = Path(__file__).parent / "startkladde-dump"
+DATA_DIR = Path(__file__).parent / "test-data" / "startkladde-dump"
 logger = logging.getLogger()
 
 
@@ -18,7 +18,7 @@ class StartkladdeTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         self.keep_artifacts = False
-        self.db_path = DATA_DIR.parent / "test_sk_import.sqlite3"
+        self.db_path = DATA_DIR / "../../artifacts" / "test_sk_import.sqlite3"
         self.out = StringIO()
         self.stream_handler = logging.StreamHandler(self.out)
         for h in logger.handlers:
