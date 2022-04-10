@@ -1,0 +1,3 @@
+Datum,Nummer,Kennzeichen,Typ,Flugzeug Verein,Pilot Nachname,Pilot Vorname,Pilot Verein,Pilot VID,Begleiter Nachname,Begleiter Vorname,Begleiter Verein,Begleiter VID,Flugtyp,Anzahl Landungen,Modus,Startzeit,Landezeit,Flugdauer,Startart,Kennzeichen Schleppflugzeug,Modus Schleppflugzeug,Landung Schleppflugzeug,Startort,Zielort,Zielort Schleppflugzeug,Bemerkungen,Abrechnungshinweis,DBID
+2015-04-19,1,D-EABC,C182,FSG HH,Lilienthal,Otto,FSG HH,49,Einstein,Albert,FSG AB,50,Normalflug,1,Lokal,12:34,12:45,0:11,ES,,Lokal,,EDDM,EDDM,,1,,123
+2014-04-20,3,D-1234,Twin II,FSG UIUI,Hirsch,Harald,FSG UIUI,,Albatros,Albert,FG WW,,Schulung (2),1,Lokal,15:23,16:00,0:37,WA,,Lokal,,EDDM,EDDM,,,,321
