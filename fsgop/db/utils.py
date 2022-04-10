@@ -25,9 +25,13 @@ def from_str(string, cls, **kwargs):
     if issubclass(cls, str):
         return string
     if issubclass(cls, datetime):
+        if not string:
+            return None
         return datetime.strptime(string,
                                  kwargs.get("datetime_fmt", DATE_TIME_FORMAT))
     if issubclass(cls, date):
+        if not string:
+            return None
         return datetime.strptime(string,
                                  kwargs.get("date_fmt", DATE_FORMAT)).date()
     return cls(string)
