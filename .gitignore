@@ -4,6 +4,3 @@ __pycache__/
 dist/
 *.egg-info/
 .idea
-tests/**/*.sqlite3
-tests/**/*.csv
-tests/**/*.xlsx
