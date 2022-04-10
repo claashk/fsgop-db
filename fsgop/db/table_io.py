@@ -278,7 +278,13 @@ class CsvParser(object):
             self._cur = self.row_type(*row)
             yield self._cur
 
-    def parse(self, path, skip_rows=-1, sheet=None, fmt=None, **kwargs):
+    def parse(self,
+              path,
+              skip_rows=-1,
+              sheet=None,
+              fmt=None,
+              encoding="utf-8",
+              **kwargs):
         """Parses a csv file defining the VSC definition
 
         Parses the content of a csv file and attempts to extract creation time
@@ -304,7 +310,7 @@ class CsvParser(object):
                 self.header, self.row_type = self.parse_header(reader, skip_rows)
                 yield from self.iter_body(reader)
         else:
-            with open(path, newline='') as csv_file:
+            with open(path, newline='', encoding=encoding) as csv_file:
                 reader = csv.reader(csv_file, **kwargs)
                 self.header, self.row_type = self.parse_header(reader, skip_rows)
                 yield from self.iter_body(reader)
