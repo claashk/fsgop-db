@@ -692,7 +692,7 @@ class Repository(object):
         rectype = self._db.schema[table].create_record_type(aliases=aliases)
         generator = self._db.select(table, rectype=rectype, **kwargs)
         if adapt_names:
-            generator, rec = NameAdapter.apply(generator)
+            generator, rectype = NameAdapter.apply(generator)
         _type = self.native_types[table]
         if ignore is None:
             fields = rectype._fields
