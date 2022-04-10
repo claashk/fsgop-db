@@ -262,14 +262,17 @@ class Repository(object):
 
     def read_file(self,
                   path: Union[str, Path],
+                  encoding: str = "utf-8",
+                  headings: Optional[Iterable[str]] = None,
                   table: Optional[str] = None,
-                  parsers: Optional[dict] = None) -> Generator[Record,
-                                                               None,
-                                                               None]:
+                  parsers: Optional[dict] = None,
+                  **kwargs) -> Generator[Record, None, None]:
         """Read table from csv file
 
         Args:
             path: Path to input file
+            headings: Iterable of regular expression, which each have to match
+                to identify the header line.
             table: Name of a table in the current schema. This table is used to
                 infer the data model to apply to the table data. If ``None``,
                 the file name must be a valid table name in the current schema.
@@ -277,7 +280,8 @@ class Repository(object):
                 as key (white spaces have to be replaced by underscores) and a
                 callable accepting a string as value. The value returned by the
                 callable will be passed to the Record constructor. Columns for
-                which no parser is defined, will be used without modification.
+                which no parser is defined are passed on unmodified.
+            **kwargs: Keyword arguments passed verbatim to CsvReader.__call__.
 
         Yields:
             One Record (derived) per line in file
@@ -285,10 +289,12 @@ class Repository(object):
         if not table:
             table = Path(path).stem
         traverse = SchemaIterator(self._db.schema)
-        s = "|".join(' '.join(it.path) for it in traverse(table, depth=2))
-        s = s.replace("_", " ")
-        csv_parser = CsvParser(headings=[s], force_lowercase=True)
-        generator = csv_parser(path)
+        if not headings:
+            s = "|".join(' '.join(it.path) for it in traverse(table, depth=2))
+            s = s.replace("_", " ")
+            headings = [s]
+        csv_parser = CsvParser(headings=headings, force_lowercase=True)
+        generator = csv_parser(path, encoding=encoding, **kwargs)
         generator, rectype = NameAdapter.apply(generator,
                                                rectype=csv_parser.row_type)
         _type = self.native_types[table]
