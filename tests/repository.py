@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 import logging
 from io import StringIO
+from datetime import date, datetime
 
 from fsgop.db import Repository, SqliteDatabase, Person
 from fsgop.db.vehicle import WINCH
@@ -11,6 +12,7 @@ from fsgop.db.startkladde import schema_v3 as sk_schema
 
 
 DATA_DIR = Path(__file__).parent / "test-data" / "startkladde-dump"
+CSV_PATH = DATA_DIR.parent
 DB_PATH = DATA_DIR.parent.parent / "artifacts" / "repo_test.sqlite3"
 STARTKLADDE_DB_PATH = DB_PATH.parent / "native_sk_db.sqlite3"
 
@@ -92,6 +94,33 @@ class RepositoryTestCase(unittest.TestCase):
             new_guy = next(repo.find([replacement])).uid
             for m in repo.find(missions):
                 self.assertEqual(new_guy, int(m.copilot))
+
+    def test_load_file(self):
+        people = []
+        properties = []
+        _parser = lambda s: datetime.strptime(s, "%Y-%m-%d") if s else None
+        parsers = {"valid_from": _parser, "valid_until": _parser}
+
+        for repo in self.create_repo():
+            people.extend(repo.read_file(CSV_PATH / "people.csv"))
+            properties.extend(repo.read_file(CSV_PATH / "person_properties.csv",
+                                             parsers=parsers))
+
+        self.assertEqual(4, len(people))
+        self.assertEqual("Bingo", people[0].last_name)
+        self.assertEqual("Benny", people[0].first_name)
+        self.assertEqual("Kirk", people[1].last_name)
+        self.assertEqual(date(1981, 1, 2), people[2].birthday)
+        self.assertIsNone(people[3].birthday)
+
+        self.assertEqual(3, len(properties))
+        self.assertEqual("Benny", properties[0].person.first_name)
+        self.assertEqual("Bingo", properties[0].person.last_name)
+        self.assertEqual("licence", properties[0].kind)
+        self.assertEqual("FI-SPL-123456", properties[0].value)
+        self.assertEqual("licence", properties[1].kind)
+        self.assertEqual("FI-SEP-4321", properties[1].value)
+
 
 def suite():
     """Get Test suite object

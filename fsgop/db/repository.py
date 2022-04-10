@@ -2,11 +2,13 @@ import logging
 from typing import Iterable, Union, Generator, Optional, Callable
 from pathlib import Path
 
-from .person import Person, PersonProperty, Property
+from .person import Person, PersonProperty, Property, NameAdapter
 from .vehicle import Vehicle, VehicleProperty
 from .mission import Mission
 from .sqlite_db import SqliteDatabase
 from .utils import Sequence, chunk, kwargs_from
+from .table_info import SchemaIterator
+from .table_io import CsvParser
 from .record import Record
 from . import startkladde as sk
 from . native_schema import schema_v1
@@ -138,7 +140,6 @@ class Repository(object):
         col_types = self._db.schema[table].column_types
         _where = " and ".join(f"{k}={self._db.var(k + '_')}"
                               for k in _type.index)
-
         for rec in recs:
             if rec.uid is not None:
                 t = self._db.unique_id(table, rec.uid, rectype=rectype)
@@ -172,12 +173,13 @@ class Repository(object):
             Modified records
         """
         ptype = self.native_types[table]  # property type
-        layout = ptype.layout()
         column = table.split("_")[0]  # "person" or "vehicle"
 
         # get type of record accepting the properties
-        rtable = self._db.schema[table].get_column(column).ref_info[0]
+        table_info = self._db.schema[table]
+        rtable = table_info.get_column(column).ref_info[0]
         rtype = self.native_types[rtable]
+        layout = ptype.layout(allow=table_info.record_type._fields)
 
         for rec in recs:
             dest = {v.uid: v for k, v in rec.select(rtype)}
@@ -209,7 +211,6 @@ class Repository(object):
             logger.debug(f"Replacing record {uid} in table '{table}' by rec "
                          f"{keep_uid}")
             self._db.replace(table, where=f"uid={int(uid)}", by=keep_uid)
-
 
     def insert(self, records: Iterable[Record], force: bool = False) -> tuple:
         """Insert native data records into database
@@ -256,7 +257,52 @@ class Repository(object):
         return nrec, nins
 
     def commit(self):
+        """Commit changes to the underlying database"""
         self._db.commit()
+
+    def read_file(self,
+                  path: Union[str, Path],
+                  table: Optional[str] = None,
+                  parsers: Optional[dict] = None) -> Generator[Record,
+                                                               None,
+                                                               None]:
+        """Read table from csv file
+
+        Args:
+            path: Path to input file
+            table: Name of a table in the current schema. This table is used to
+                infer the data model to apply to the table data. If ``None``,
+                the file name must be a valid table name in the current schema.
+            parsers: Dictionary with parsers. Contains a column name in the table
+                as key (white spaces have to be replaced by underscores) and a
+                callable accepting a string as value. The value returned by the
+                callable will be passed to the Record constructor. Columns for
+                which no parser is defined, will be used without modification.
+
+        Yields:
+            One Record (derived) per line in file
+        """
+        if not table:
+            table = Path(path).stem
+        traverse = SchemaIterator(self._db.schema)
+        s = "|".join(' '.join(it.path) for it in traverse(table, depth=2))
+        s = s.replace("_", " ")
+        csv_parser = CsvParser(headings=[s], force_lowercase=True)
+        generator = csv_parser(path)
+        generator, rectype = NameAdapter.apply(generator,
+                                               rectype=csv_parser.row_type)
+        _type = self.native_types[table]
+        layout = _type.layout(allow=rectype._fields)
+
+        if parsers is not None:
+            _parsers = tuple(parsers.get(col, lambda x: x)
+                             for col in rectype._fields)
+            for rec in generator:
+                _rec = rectype(*(p(x) for p, x in zip(_parsers, rec)))
+                yield _type(**kwargs_from(_rec, layout=layout))
+        else:
+            for rec in generator:
+                yield _type(**kwargs_from(rec, layout=layout))
 
     @classmethod
     def new(cls, path):
