@@ -63,11 +63,11 @@ class SpreadsheetViewTestCase(unittest.TestCase):
 
         view = SpreadsheetView(columns=columns, fmt=fmt)
         for path in (self.csv_path, self.xlsx_path):
+            view.path = path
             view(self.repo.add("vehicle_properties",
                                self.repo.read("missions",
                                               order="missions.begin,"
-                                                    "missions.end")),
-                 path)
+                                                    "missions.end")))
             #TODO -> need some checks here
 
 
