@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import Optional, Iterable, Dict, Callable, Generator
-from functools import reduce
+from typing import Optional, Iterable, Dict, Callable, Generator, Any
 from pathlib import Path
 from csv import writer as csv_writer
 
@@ -70,8 +69,30 @@ class SpreadsheetView(object):
 
         for rec in recs:
             writer.writerow(
-                tuple(fmt(reduce(getattr, col, rec))
-                      for col, fmt in zip(self._columns, self._formatters)))
+                tuple(fmt(self._getattr(rec, cols))
+                      for cols, fmt in zip(self._columns, self._formatters)))
+
+    @staticmethod
+    def _getattr(obj: Any, attrs: Iterable[str], *args) -> Any:
+        """Get attributes recursively from object
+
+        Args:
+            obj: Any object, from which to extract a recursive attribute
+            attrs: Iterable of strings specifying the attributes in the order
+                the shall be retrieved (``["first", "second", "third"] will
+                return ``obj.first.second.third``)
+            *args: Only used to specify a default value returned if an attribute
+                is not found
+
+        Return:
+            Attribute of obj
+        """
+        retval = obj
+        for attr in attrs:
+            if retval is None:
+                break
+            retval = getattr(retval, attr, *args)
+        return retval
 
     @staticmethod
     def date_formatter(fmt: str) -> Callable:
