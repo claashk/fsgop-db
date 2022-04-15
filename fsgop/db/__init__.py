@@ -8,6 +8,7 @@ from .table_info import SchemaIterator
 from .sqlite_db import SqliteDatabase
 from .mysql_db import MysqlDatabase
 from .repository import Repository
+from .controller import Controller
 from .spreadsheet_view import SpreadsheetView
 
 
