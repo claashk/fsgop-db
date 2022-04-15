@@ -75,6 +75,7 @@ class Repository(object):
 
     def select(self,
                table: str,
+               what: str = "*",
                where: Optional[str] = None,
                order: Optional[str] = None,
                **kwargs) -> Generator[Record, None, None]:
@@ -82,6 +83,7 @@ class Repository(object):
 
         Args:
             table: Name of table to select from
+            what: String describing what to select. Defaults to ``'*'``.
             where: SQL WHERE clause
             order: SQL ORDER BY clause
             **kwargs: Keyword arguments can be used to safely escape search
@@ -94,7 +96,11 @@ class Repository(object):
         rectype = self._db.schema[table].record_type
         layout = _type.layout(allow=rectype._fields)
 
-        for rec in self._db.select(table, where=where, order=order, **kwargs):
+        for rec in self._db.select(table,
+                                   what=what,
+                                   where=where,
+                                   order=order,
+                                   **kwargs):
             yield _type(**kwargs_from(rec, layout))
 
     def read(self,
