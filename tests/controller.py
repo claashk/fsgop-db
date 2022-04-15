@@ -110,6 +110,21 @@ class ControllerTestCase(unittest.TestCase):
                 self.assertIn(otto.uid, [p.uid for p in flight.crew()])
             self.assertEqual(4, count)
 
+    def test_missions_like(self):
+        for ctrl in self.create_ctrl():
+            missions = list(ctrl._repo.read("missions"))
+            for m in missions:
+                similar = list(ctrl.missions_like(m))
+                self.assertEqual(1, len(similar))
+                self.assertEqual(m.uid, similar[0].uid)
+            m = missions[0]
+            m.vehicle.uid = 999
+            self.assertEqual(1, len(list(ctrl.missions_like(m))))
+            m.pilot.uid = 999
+            self.assertEqual(1, len(list(ctrl.missions_like(m))))
+            m.copilot.uid = 998
+            self.assertEqual(0, len(list(ctrl.missions_like(m))))
+
 
 def suite():
     """Get Test suite object

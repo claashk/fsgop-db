@@ -11,6 +11,15 @@ from .mission import Mission
 
 Match = namedtuple("Match", ["index", "rec1", "rec2"])
 
+CREW = [
+    "pilot",
+    "copilot",
+    "passenger1",
+    "passenger2",
+    "passenger3",
+    "passenger4"
+]
+
 
 class Controller(object):
     def __init__(self, repo: Optional[Repository] = None) -> None:
@@ -43,22 +52,13 @@ class Controller(object):
         Yields:
             One Mission instance per matching flight
         """
-        crew = ["pilot",
-                "copilot",
-                "passenger1",
-                "passenger2",
-                "passenger3",
-                "passenger4"]
-
         if person.uid is None:
             person = next(self._repo.find([person]))
 
-        where = " OR ".join(f"missions.{p}={person.uid}" for p in crew)
-        where = f"({where})"
-
+        cols = [f"missions.{s}" for s in CREW]
+        where = f"({person.uid} IN ({','.join(cols)}))"
         if since is not None or until is not None:
             fmt = self._repo.schema["missions"].get_column("begin").fmt
-
             for d, op in ((since, ">="), (until, "<")):
                 if d is not None:
                     where = f"{where} AND missions.begin{op}'{d.strftime(fmt)}'"
@@ -66,6 +66,17 @@ class Controller(object):
                                   self._repo.add(
                                       "vehicle_properties",
                                       self._repo.read("missions", where=where)))
+
+    def missions_like(self, m: Mission) -> Generator[Mission, None, None]:
+        w1 = f"(missions.begin<='{m.end}' AND missions.end>='{m.begin}')"
+        crew = ",".join(f"missions.{s}" for s in CREW)
+        w2 = " OR ".join(f"{int(getattr(m, s))} IN ({crew})"
+                         for s in CREW if getattr(m, s))
+        if m.vehicle is not None:
+            w3 = f"missions.vehicle={int(m.vehicle)}"
+            w2 = f"{w2} OR {w3}" if w2 else w3
+        where = f"{w1} AND ({w2})"
+        yield from self._repo.select("missions", where=where)
 
     def diff(self,
              path: Union[Path, str],
