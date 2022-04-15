@@ -175,7 +175,6 @@ class Database(object):
 
     def select(self,
                name: str,
-               what: str = "*",
                where: Optional[str] = None,
                order: Optional[str] = None,
                rectype: Optional[Any] = None,
@@ -185,7 +184,6 @@ class Database(object):
         Args:
             name: Name of table to select data from. Must be a valid key into the
                 schema dictionary.
-            what: String describing what to select. Defaults to ``'*'``.
             where: Any filter string in the format passed to *SQL* ``WHERE``
                 command. If *None*, no filter is applied. Defaults to ``None``.
                 Use escaped code for variables and pass the variables as keyword
@@ -206,7 +204,7 @@ class Database(object):
         _order = f" ORDER BY {order}" if order else ""
         _type = table.record_type if rectype is None else rectype
         cursor = self._db.cursor()
-        cursor.execute(f"SELECT {what} FROM {table.name}{_where}{_order}", kwargs)
+        cursor.execute(f"SELECT * FROM {table.name}{_where}{_order}", kwargs)
         for row in cursor:
             yield _type(*row)
 
