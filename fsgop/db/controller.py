@@ -13,6 +13,13 @@ class Controller(object):
     def __init__(self, repo: Optional[Repository] = None) -> None:
         self._repo = repo
 
+    def __enter__(self) -> "Controller":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        if self._repo is not None:
+            self._repo.__exit__(exc_type, exc_val, exc_tb)
+
     def diff(self,
              path: Union[Path, str],
              table: Optional[str] = None,
