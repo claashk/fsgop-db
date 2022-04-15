@@ -111,9 +111,6 @@ class RepositoryTestCase(unittest.TestCase):
             self.assertListEqual(["Otto", "Martin", ""],
                                  [_people[i].first_name for i in [0, 3, 4]])
 
-
-
-
     def test_load_file(self):
         people = []
         properties = []

@@ -51,6 +51,11 @@ class Repository(object):
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
 
+    @property
+    def schema(self) -> dict:
+        """Access schema dictionary of underlying database"""
+        return self._db.schema if self._db else dict()
+
     def open(self, db: Union[str, Path], **kwargs) -> None:
         """Open a database file
 
