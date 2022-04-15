@@ -188,7 +188,7 @@ class Repository(object):
         layout = ptype.layout(allow=table_info.record_type._fields)
 
         for rec in recs:
-            dest = {v.uid: v for k, v in rec.select(rtype)}
+            dest = {v.uid: v for k, v in rec.select(rtype) if v.uid is not None}
             where = f"{column} IN ({','.join(map(str, dest.keys()))})"
             for prec in self._db.select(table, where=where):
                 _property = ptype(**kwargs_from(prec, layout))
