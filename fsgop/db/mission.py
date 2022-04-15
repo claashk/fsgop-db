@@ -5,6 +5,27 @@ from .record import Record, to
 from .vehicle import Vehicle
 from .person import Person
 
+#  EASA PART FCL distinguishes the following flight types:
+#  -> dual flight instruction: Flugunterricht mit FLuglehrer (student with FI)
+#  -> (supervised) solo: Alleinflug unter Aufsicht (student without FI)
+#  -> solo cross-country: Allein-Überlandflug
+#  -> dual cross-country: Überlandflug mit Fluglehrer
+#  -> training flights: Schulungsflüge (license holders with FI)
+#  -> skill test: Praktische Prüfung (mit FE)
+#  -> proficiency check: Befähigungsüberprüfung (mit FE)
+#  -> assessment of competence: Beurteilung der Kompetenz
+#    (FI, proficiency check for instructors)
+#
+#  Translations verbatim from German and English versions of EU reg. 2020/358
+#  ref. e.g. SFCL.130, SFCL.160
+#
+#  References:
+#  https://eur-lex.europa.eu/legal-content/de/TXT/?uri=CELEX:32020R0358
+#  https://www.easa.europa.eu/sites/default/files/dfu/Easy_Access_Rules_for_Part-FCL-Aug20.pdf
+#  https://www.easa.europa.eu/sites/default/files/dfu/Sailplane%20Rule%20Book.pdf
+
+
+
 NORMAL_FLIGHT = 1
 GUEST_FLIGHT = 2
 CHECK_FLIGHT = 3
