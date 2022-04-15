@@ -46,7 +46,10 @@ class Controller(object):
             for d, op in ((since, ">="), (until, "<")):
                 if d is not None:
                     where = f"{where} AND missions.begin{op}'{d.strftime(fmt)}'"
-        yield from self._repo.read("missions", where=where)
+        yield from self._repo.add("person_properties",
+                                  self._repo.add(
+                                      "vehicle_properties",
+                                      self._repo.read("missions", where=where)))
 
     def diff(self,
              path: Union[Path, str],
