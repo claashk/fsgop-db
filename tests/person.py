@@ -97,6 +97,17 @@ class PersonTestCase(unittest.TestCase):
         p = Person(first_name="Sören (3)", last_name="Prof. Dr. O'Brian")
         self.assertEqual("soeren.obrian_3", p.username)
 
+    def test_name(self):
+        p = Person(first_name="Christiano", last_name="Ronaldo", count=7)
+        self.assertEqual("Ronaldo, Christiano (7)", p.name)
+
+        p = Person(last_name="Ronaldo")
+        self.assertEqual("Ronaldo", p.name)
+
+        p = Person(first_name="Twiggy")
+        self.assertEqual("Twiggy", p.name)
+
+
     def test_comparison(self):
         p1 = Person(first_name="Otto", last_name="Lilienthal")
         p2 = Person(first_name="Otto", last_name="Prof. Dr. Lilienthal")

@@ -120,6 +120,16 @@ class Person(Record):
             s = f"{s}_{self.count}"
         return s.translate(ASCII)
 
+    @property
+    def name(self):
+        if self.first_name and self.last_name:
+            s = f"{self.last_name}, {self.first_name}"
+        else:
+            s = self.last_name or self.first_name
+        if self.count > 1:
+            s = f"{s} ({self.count})"
+        return s
+
     def index_tuple(self) -> Optional[tuple]:
         """Create index tuple
 
