@@ -369,7 +369,9 @@ class Database(object):
                 specified, the *where* string needs to use a parameterized query
                 and the sequence shall yield the associated parameter sets.
                 No other keyword-based variables are allowed in combination with
-                this argument.
+                this argument. In case parameters are used in both where and
+                assignment strings, the assignment string parameters precede the
+                where string parameters.
             **kwargs: Variables to be inserted into where string.
 
         Example:
@@ -441,23 +443,33 @@ class Database(object):
                            where=f"{id_col}={int(uid)}",
                            rectype=rectype)
 
-    def replace(self, name: str, where: str, by: int) -> None:
+    def replace(self, name: str, where: str, by: Optional[int] = None) -> None:
         """Replace records with another existing record
 
         Args:
             name: Name of table in which to replace records
             where: Search string defining the records to be replaced. All records
                 in table *name* matching this query are replaced.
-            by: UID of record used as replacement
+            by: UID of record used as replacement. If ``None``, NULL will be used
+                as replacement.
         """
-        uid = int(by)
         id_col = self.schema[name].id_column
+        if by is not None:
+            uid = int(by)
+            new_rec = self.unique_id(name, uid)
+        else:
+            uid = None
+            new_rec = None
+
         uids = []
-        new_rec = self.unique_id(name, uid)
         for rec in self.select(name, where=where):
             for local_col, ref_table, ref_col in dependencies(self.schema, name):
+                if new_rec is not None:
+                    _with = f"{ref_col}='{getattr(new_rec, local_col)}'"
+                else:
+                    _with = f"{ref_col}=NULL"
                 self.update(ref_table,
-                            f"{ref_col}='{getattr(new_rec, local_col)}'",
+                            _with,
                             where=f"{ref_col}='{getattr(rec, local_col)}'")
                 uids.append(getattr(rec, id_col))
         if uid in uids:

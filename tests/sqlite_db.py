@@ -121,15 +121,14 @@ class SqliteDatabaseTestCase(unittest.TestCase):
             db.delete("people", where="id='4'")
         self.assertIn("foreign key constraint failed",
                       str(ctx.exception).lower())
+        conflicts = list(db.select("flights", where="copilot_id=4"))
+        self.assertListEqual([32], [f.id for f in conflicts])
         self.assertEqual(5, db.count("people"))
 
-        db.delete("flights", where="copilot_id=4")
-        new_flights = list(db.select("flights", order="id"))
-        self.assertEqual(3, len(new_flights))
-        self.assertListEqual([16, 21, 31], [f.id for f in new_flights])
-
-        db.delete("people", where="id=4")
+        db.replace("people", where="id='4'", by=None)
         self.assertEqual(4, db.count("people"))
+        resolved = list(db.select("flights", where="id=:i", i=conflicts[0].id))
+        self.assertIsNone(resolved[0].copilot_id)
 
     def test_replace(self):
         db = self.load_dump()
