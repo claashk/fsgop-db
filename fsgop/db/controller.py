@@ -1,10 +1,13 @@
-from typing import Iterable, Dict, List, Optional, Union, Callable
+from typing import Iterable, Dict, List, Optional, Union, Generator
 from difflib import SequenceMatcher
 from collections import namedtuple
 from pathlib import Path
+from datetime import datetime
 
 from .record import Record
 from .repository import Repository
+from .person import Person
+from .mission import Mission
 
 Match = namedtuple("Match", ["index", "rec1", "rec2"])
 
@@ -19,6 +22,31 @@ class Controller(object):
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if self._repo is not None:
             self._repo.__exit__(exc_type, exc_val, exc_tb)
+
+    def flights_of(self,
+                   person: Person,
+                   since: Optional[datetime] = None,
+                   until: Optional[datetime] = None) -> Generator[Mission, None, None]:
+        crew = ["pilot",
+                "copilot",
+                "passenger1",
+                "passenger2",
+                "passenger3",
+                "passenger4"]
+
+        if person.uid is None:
+            person = next(self._repo.find([person]))
+
+        where = " OR ".join(f"missions.{p}={person.uid}" for p in crew)
+        where = f"({where})"
+
+        if since is not None or until is not None:
+            fmt = self._repo.schema["missions"].get_column("begin").fmt
+
+            for d, op in ((since, ">="), (until, "<")):
+                if d is not None:
+                    where = f"{where} AND missions.begin{op}'{d.strftime(fmt)}'"
+        yield from self._repo.read("missions", where=where)
 
     def diff(self,
              path: Union[Path, str],
