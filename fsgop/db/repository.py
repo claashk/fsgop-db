@@ -1,6 +1,7 @@
 import logging
 from typing import Iterable, Union, Generator, Optional, Callable
 from pathlib import Path
+from collections import namedtuple
 
 from .person import Person, PersonProperty, Property, NameAdapter
 from .vehicle import Vehicle, VehicleProperty
@@ -190,27 +191,74 @@ class Repository(object):
                     _property.add_to(dest[_property.rec])
             yield rec
 
-    def replace(self, records: Iterable[Record], replacement: Record) -> None:
+    def replace(self,
+                records: Iterable[Record],
+                replacement: Optional[Record] = None) -> None:
         """Replaces a number of records by another record in all tables
 
         Args:
             records: Iterable of records to be replaced. These records will be
                 deleted upon successful completion
-            replacement: The record replacing the deleted records.
+            replacement: The record replacing the deleted records. If ``None``,
+                deleted records are replaced by NULL.
         """
-        table = self._native_tables[type(replacement)]
-        keep_uid = replacement.uid
-        if keep_uid is None:
-            keep_uid = next(self.find([replacement])).uid
+        if replacement is not None:
+            keep_uid = replacement.uid
+            if keep_uid is None:
+                keep_uid = next(self.find([replacement])).uid
+            replacement_table = self._native_tables[type(replacement)]
+        else:
+            replacement_table = None
+            keep_uid = None
 
         for rec in records:
-            assert self._native_tables[type(rec)] == table
             uid = rec.uid
-            if rec.uid is None:
+            if uid is None:
                 uid = next(self.find([rec])).uid
+            table = self._native_tables[type(rec)]
+            if replacement_table is not None:
+                assert table == replacement_table
             logger.debug(f"Replacing record {uid} in table '{table}' by rec "
                          f"{keep_uid}")
             self._db.replace(table, where=f"uid={int(uid)}", by=keep_uid)
+
+    def update(self,
+               records: Iterable[Record],
+               fields: Optional[Iterable[str]]) -> None:
+        """Update a number of existing records in the database
+
+        Args:
+            records: Iterable of records to update. The uid field of these
+                records shall contain a valid uid within the database, which is
+                used to identify the record to update. All other fields may
+                contain information to update in the database.
+            fields: Names of fields to update in the database. If specified, only
+                attributes included in fields are updated in the database. If
+                ``None``, all fields except the uid are updated. Defaults to
+                ``None``.
+        """
+        recs = Sequence(records)
+        if not recs:
+            return
+
+        table = self._native_tables[recs.element_type]
+        rectype = self._db.schema[table].record_type
+        col_types = self._db.schema[table].column_types
+
+        # 'uid' has to be last item, because it occurs in 'where' clause
+        if fields is None:
+            _fields = [f for f in rectype._fields if f != "uid"] + ["uid"]
+        else:
+            s = set(fields) - {"uid"}
+            _fields = [f for f in rectype._fields if f in s] + ["uid"]
+
+        _type = namedtuple(f"{type(rectype).__name__}Selection", _fields)
+        _col_type = _type(*(getattr(col_types, f) for f in _type._fields))
+        what = ",".join(f"{f}={self._db.placeholder}"
+                        for f in _type._fields if f != "uid")
+        where = f"uid={self._db.placeholder}"
+        gen = (r.to(_type, _col_type) for r in recs)
+        self._db.update(name=table, assignment=what, where=where, parameters=gen)
 
     def insert(self, records: Iterable[Record], force: bool = False) -> tuple:
         """Insert native data records into database

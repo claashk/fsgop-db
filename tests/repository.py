@@ -95,6 +95,25 @@ class RepositoryTestCase(unittest.TestCase):
             for m in repo.find(missions):
                 self.assertEqual(new_guy, int(m.copilot))
 
+    def test_update(self):
+        for repo in self.create_repo():
+            people = list(repo.select("people", order="uid"))
+            self.assertEqual(5, len(people))
+            self.assertEqual("Otto K.", people[0].first_name)
+            people[0].first_name = "Otto"
+            self.assertEqual("Willi", people[3].first_name)
+            people[3].first_name = "Martin"
+            self.assertEqual("N.n.", people[4].first_name)
+            people[4].first_name = None
+            repo.update(people, fields={"first_name"})
+
+            _people = list(repo.select("people", order="uid"))
+            self.assertListEqual(["Otto", "Martin", ""],
+                                 [_people[i].first_name for i in [0, 3, 4]])
+
+
+
+
     def test_load_file(self):
         people = []
         properties = []
