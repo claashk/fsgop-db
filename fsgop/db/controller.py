@@ -18,6 +18,20 @@ class Controller(object):
              table: Optional[str] = None,
              threshold: Optional[float] = 0.,
              **kwargs) -> List[Match]:
+        """Get difference of file data with database data
+
+        Args:
+            path: Path to input (csv, xlsx) file containing tabulated data
+            table: Name of associated database table. Not required, if basename
+                of path coincides with table name
+            threshold: Float value setting the minimum similarity. Defaults to
+                0.8
+            **kwargs: Keyword arguments passed verbatim to
+                :meth:`fsgop.db.Repository.read_file`.
+
+        Returns:
+             List containing Match instances
+        """
         if not table:
             table = Path(path).stem
 
