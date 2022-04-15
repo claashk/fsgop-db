@@ -26,7 +26,23 @@ class Controller(object):
     def flights_of(self,
                    person: Person,
                    since: Optional[datetime] = None,
-                   until: Optional[datetime] = None) -> Generator[Mission, None, None]:
+                   until: Optional[datetime] = None) -> Generator[Mission,
+                                                                  None,
+                                                                  None]:
+        """Select all flights of a given person inside a given time interval
+
+        Args:
+            person: Person for which to select flights. If no uid is specified,
+                a search for this person in the database is performed.
+            since: Only flights departed on or after this time are shown. If
+                ``None``, flights since the beginning of time are selected.
+            until: Only flights departed before this datetime instance are
+                selected. If ``None``, all flights until the end of time are
+                shown.
+
+        Yields:
+            One Mission instance per matching flight
+        """
         crew = ["pilot",
                 "copilot",
                 "passenger1",
