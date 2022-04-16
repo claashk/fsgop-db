@@ -268,6 +268,29 @@ class Repository(object):
         gen = (r.to(_type, _col_type) for r in recs)
         self._db.update(name=table, assignment=what, where=where, parameters=gen)
 
+    def delete(self, records: Iterable[Record]) -> None:
+        """Delete records from the repository
+
+        Args:
+            records: Records to delete. If the uid attribute is not set, it will
+                be looked up using Repository.find.
+        """
+        recs = Sequence(records)
+        if not recs:
+            return
+
+        table = self._native_tables[recs.element_type]
+        incomplete = []
+        uids = set()
+        for rec in recs:
+            uids.add(rec.uid) if rec.uid is not None else incomplete.append(rec)
+
+        if incomplete:
+            for rec in self.find(incomplete):
+                uids.add(rec.uid)
+
+        self._db.delete_ids(table, uids)
+
     def insert(self, records: Iterable[Record], force: bool = False) -> tuple:
         """Insert native data records into database
 
