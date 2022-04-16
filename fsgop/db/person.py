@@ -136,7 +136,7 @@ class Person(Record):
         Overrides the default implementation to force ``None`` is returned, if
         neither first nor last name are available.
         """
-        if f"{self.first_name}{self.last_name}" == "":
+        if not (self.first_name or self.last_name):
             return None
         return super().index_tuple()
 

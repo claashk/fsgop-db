@@ -38,8 +38,11 @@ class Record(object):
     def __str__(self) -> str:
         """Convert this to string consisting of index fields
         """
-        return ",".join([str(x) if x is not None else ""
-                         for x in self.index_tuple()])
+        t = self.index_tuple()
+        return ", ".join(str(x) for x in t) if t is not None else f"<{self.uid}>"
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({str(self)})"
 
     def __int__(self) -> int:
         """Convert this record to an integer
@@ -62,9 +65,6 @@ class Record(object):
             Set of properties with the given name
         """
         return self._properties.setdefault(name, set())
-
-    def __repr__(self) -> str:
-        return f"{type(self).__name__} ({str(self)})"
 
     def __eq__(self, other: "Record") -> bool:
         """Equal comparison by key
@@ -144,7 +144,7 @@ class Record(object):
             if any index component is ``None``
         """
         t = tuple(getattr(self, x) for x in self.index)
-        if None in t:
+        if any(x is None for x in t):
             return None
         return t
 

@@ -24,8 +24,6 @@ from .person import Person
 #  https://www.easa.europa.eu/sites/default/files/dfu/Easy_Access_Rules_for_Part-FCL-Aug20.pdf
 #  https://www.easa.europa.eu/sites/default/files/dfu/Sailplane%20Rule%20Book.pdf
 
-
-
 NORMAL_FLIGHT = 1
 GUEST_FLIGHT = 2
 CHECK_FLIGHT = 3
