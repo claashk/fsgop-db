@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from typing import Union, Optional, Set, Iterable
 
 from .record import Record, to
@@ -80,7 +80,7 @@ class Mission(Record):
             passenger2: Optional[Union[int, Person]] = None,
             passenger3: Optional[Union[int, Person]] = None,
             passenger4: Optional[Union[int, Person]] = None,
-            category: Optional[str] = None,
+            category: Optional[Union[str, int]] = None,
             num_stints: Optional[int] = None,
             launch: Optional[Union[int, "Mission"]] = None,
             origin: Optional[str] = None,
@@ -207,5 +207,85 @@ class Mission(Record):
             if kwargs:
                 retval["launch"] = kwargs
         return retval
+
+    @classmethod
+    def aerotow_for(cls,
+                    mission: "Mission",
+                    vehicle: Optional[Vehicle] = None,
+                    pilot: Optional[Person] = None,
+                    destination: Optional[str] = None,
+                    end: Optional[datetime] = None) -> "Mission":
+        """Create an aerotow for a mission
+
+        Args:
+            mission: Mission for which to create an aerotow
+            vehicle: Vehicle used for aerotow
+            pilot: Tow-pilot
+            destination: Landing location of towflight
+            end: landing time of tow flight
+
+        Return:
+            Mission representing the aerotow
+        """
+        m = cls(uid=None,
+                vehicle=vehicle,
+                pilot=pilot,
+                category=AEROTOW,
+                num_stints=mission.num_stints,
+                origin=mission.origin,
+                begin=mission.begin,
+                destination=destination,
+                end=end,
+                charge_person=mission.pilot,
+                comments=f"Auto-generated aerotow for flight {mission.uid}")
+        m.launch = m
+        return m
+
+    @classmethod
+    def winch_launch_for(cls,
+                         mission: "Mission",
+                         operator: Optional[Person] = None,
+                         vehicle: Optional[Vehicle] = None,
+                         begin: Optional[datetime] = None,
+                         end: Optional[datetime] = None) -> "Mission":
+        """Create a new winch launch mission
+
+        We suppose that one winch mission spans one day at one location.
+
+        Args:
+            mission: Mission for which to create a winch launch
+            operator: Winch operator
+            vehicle: Vehicle (winch) used for this winch mission
+            begin: Begin of this winch mission. If not provided, it is set to
+                midnight of the day of the mission.
+            end: End of this winch mission. If not provided, it is set to
+                midnight of the day following begin.
+        """
+        # create a new mission
+        if begin is None:
+            begin = mission.begin
+        if begin is None and mission.end is not None:
+            begin = datetime.combine(mission.end.date(),
+                                     time(hour=0, minute=0, second=0))
+        if begin is None:
+            raise ValueError(f"Mission {mission} has neither begin nor end")
+        if end is None:
+            end = datetime.combine((begin + timedelta(hours=24)).date(),
+                                   time(hour=0, minute=0, second=0))
+        m = cls(uid=None,  # has to be set later by user
+                vehicle=vehicle,
+                pilot=operator,
+                category=WINCH_OPERATION,
+                num_stints=None,
+                origin=mission.origin,
+                begin=begin,
+                destination=mission.origin,  # winch does not move
+                end=end,
+                charge_person=None,
+                comments=str("Auto-generated winch mission for mission "
+                             f"{mission.uid}"))
+        return m
+
+
 
 

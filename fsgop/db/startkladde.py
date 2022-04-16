@@ -1,7 +1,5 @@
-#from __future__ import annotations
-#from collections.abc import Iterator
-from typing import Iterator, Optional, Iterable, Union
-from datetime import datetime, timedelta, time
+from typing import Optional, Iterable, Union, Iterator
+from datetime import datetime, timedelta
 from pathlib import Path
 import logging
 
@@ -12,7 +10,7 @@ from .vehicle import SINGLE_ENGINE_PISTON, MOTOR_GLIDER, GLIDER, ULTRALIGHT
 from .vehicle import WINCH, UNDEFINED, TOURING_MOTOR_GLIDER
 from .mission import Mission
 from .mission import NORMAL_FLIGHT, GUEST_FLIGHT, ONE_SEATED_TRAINING
-from .mission import TWO_SEATED_TRAINING, WINCH_OPERATION, AEROTOW
+from .mission import TWO_SEATED_TRAINING
 
 from .utils import kwargs_from, get_value, set_value
 
@@ -616,59 +614,10 @@ class Repository(object):
         except KeyError:
             pass
         # create a new mission
-        if begin is None and mission.end is not None:
-            begin = datetime.combine(mission.end.date(),
-                                     time(hour=0, minute=0, second=0))
-        if begin is None:
-            raise ValueError(f"Mission {mission} has neither begin nor end")
-        end = datetime.combine((begin + timedelta(hours=24)).date(),
-                               time(hour=0, minute=0, second=0))
-        launch = Mission(uid=None,  # has to be set later by user
-                         vehicle=vehicle,
-                         pilot=None,
-                         category=WINCH_OPERATION,
-                         num_stints=None,
-                         origin=mission.origin,
-                         begin=begin,
-                         destination=mission.origin,  # winch does not move
-                         end=end,
-                         charge_person=None,
-                         comments="Auto-generated winch mission for launch "
-                                   f"method {lm_uid}")
+        launch = Mission.winch_launch_for(mission=mission, vehicle=vehicle)
+        launch.comments = str("Auto-generated winch mission for launch method "
+                              f"{lm_uid}")
         self._winch_missions[(lm_uid, mission.origin)] = launch
-        return launch
-
-    @staticmethod
-    def aerotow_for(mission: Mission,
-                    vehicle: Optional[Vehicle] = None,
-                    pilot: Optional[Person] = None,
-                    destination: Optional[str] = None,
-                    end: Optional[datetime] = None) -> Mission:
-        """Create aerotow for a mission
-
-        Args:
-            mission: Mission for which to create an aerotow
-            vehicle: Vehicle used for aerotow
-            pilot: Tow-pilot
-            destination: Landing location of towflight
-            end: landing time of tow flight
-
-        Return:
-            Mission representing the aerotow
-        """
-        launch = Mission(uid=None,
-                         vehicle=vehicle,
-                         pilot=pilot,
-                         category=AEROTOW,
-                         num_stints=mission.num_stints,
-                         origin=mission.origin,
-                         begin=mission.begin,
-                         destination=destination,
-                         end=end,
-                         charge_person=mission.pilot,
-                         comments="Auto-generated aerotow for flight "
-                                  f"{mission.uid}")
-        launch.launch = launch
         return launch
 
     def get(self,
@@ -807,12 +756,13 @@ class Repository(object):
             elif launch_vehicle.category in MOTOR_PLANES:
                 if rec.towplane_id is not None:
                     launch_vehicle = Vehicle(uid=int(rec.towplane_id))
-                launch = self.aerotow_for(
+                launch = Mission.aerotow_for(
                              mission,
                              vehicle=launch_vehicle,
                              pilot=rec.towpilot_id,
                              destination=rec.towflight_landing_location,
-                             end=rec.towflight_landing_time)
+                             end=rec.towflight_landing_time
+                         )
                 launch.uid = uid
                 uid += 1
                 yield launch
