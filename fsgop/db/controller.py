@@ -1,4 +1,4 @@
-from typing import Iterable, Dict, List, Optional, Union, Generator
+from typing import Iterable, Dict, List, Optional, Union, Iterator, Tuple
 from difflib import SequenceMatcher
 from collections import namedtuple
 from pathlib import Path
@@ -7,7 +7,8 @@ from datetime import datetime
 from .record import Record
 from .repository import Repository
 from .person import Person
-from .mission import Mission
+from .mission import Mission, ONE_SEATED_TRAINING, TWO_SEATED_TRAINING
+from .mission import NORMAL_FLIGHT, GUEST_FLIGHT, CHECK_FLIGHT
 
 Match = namedtuple("Match", ["index", "rec1", "rec2"])
 
@@ -32,13 +33,26 @@ class Controller(object):
         if self._repo is not None:
             self._repo.__exit__(exc_type, exc_val, exc_tb)
 
-    def flights_of(self,
-                   person: Person,
-                   since: Optional[datetime] = None,
-                   until: Optional[datetime] = None) -> Generator[Mission,
-                                                                  None,
-                                                                  None]:
-        """Select all flights of a given person inside a given time interval
+    def missions(self, **kwargs) -> Iterator[Mission]:
+        """Select missions from the database
+
+        Args:
+            **kwargs: Keyword arguments passed verbatim to
+                :meth:`fsgop.db.Repository.read`
+
+        Yields:
+            Complete Mission records matching the query
+        """
+        yield from self._repo.add("person_properties",
+                                  self._repo.add(
+                                      "vehicle_properties",
+                                      self._repo.read("missions", **kwargs)))
+
+    def missions_of(self,
+                    person: Person,
+                    since: Optional[datetime] = None,
+                    until: Optional[datetime] = None) -> Iterator[Mission]:
+        """Select all missions of a given person inside a given time interval
 
         Args:
             person: Person for which to select flights. If no uid is specified,
@@ -67,15 +81,101 @@ class Controller(object):
                                       "vehicle_properties",
                                       self._repo.read("missions", where=where)))
 
-    def missions_like(self, m: Mission) -> Generator[Mission, None, None]:
-        w1 = f"(missions.begin<='{m.end}' AND missions.end>='{m.begin}')"
+    def missions_like(self, m: Mission, where: str = "") -> Iterator[Mission]:
+        """Find missions which are similar to a given mission
+
+        A mission is defined as *similar* here, if either at least one crew
+        member or the aircraft are engaged in two overlapping missions. Two
+        similar missions cannot physically occur in reality.
+
+        Args:
+            m: Reference mission
+            where: String containing additional search criteria, which are added
+                to the WHERE clause.
+
+        Yields:
+             One Mission instance per similar mission to m in the database.
+        """
+        if m.begin is None or m.end is None:
+            return
+        w1 = f"(missions.begin<'{m.end}' AND missions.end>'{m.begin}')"
         crew = ",".join(f"missions.{s}" for s in CREW)
         w2 = " OR ".join(f"{int(getattr(m, s))} IN ({crew})"
                          for s in CREW if getattr(m, s))
         if m.vehicle is not None:
             w3 = f"missions.vehicle={int(m.vehicle)}"
             w2 = f"{w2} OR {w3}" if w2 else w3
-        where = f"{w1} AND ({w2})"
+        _where = f"{w1} AND ({w2})"
+        where = f"({where}) AND {_where}" if where else _where
+        yield from self._repo.select("missions", where=where)
+
+    def conflicts(self) -> Iterator[Tuple[Mission, List[Mission]]]:
+        """Iterate over missions with inconsistent data
+
+        Yields:
+            Tuple containing the mission causing the conflict and a list
+            containing the associated conflicting missions
+        """
+        where = "begin IS NOT NULL AND end IS NOT NULL"
+        for mission in self._repo.select("missions", where=where, order="uid"):
+            tmp = list(self.missions_like(mission, where=f"uid>{mission.uid}"))
+            if tmp:
+                yield mission, tmp
+
+    def incomplete(self,
+                   categories: Optional[Iterable[int]] = None,
+                   fields: Optional[Iterable[str]] = None) -> Iterator[Mission]:
+        """Iterate over missions with incomplete data
+
+        Args:
+            categories: Numeric identifiers of flight categories to check. Only
+                categories named here are checked. Defaults to
+
+                - NORMAL_FLIGHT
+                - GUEST_FLIGHT
+                - CHECK_FLIGHT
+                - ONE_SEATED_TRAINING
+                - TWO_SEATED_TRAINING
+            fields: Mandatory fields in mission, which must not be ``None``.
+                Defaults to
+
+                - pilot
+                - vehicle
+                - begin
+                - end
+                - origin
+                - destination
+                - launch
+
+        Yields:
+            One Mission instance per incomplete mission dataset
+        """
+        _fields = (
+            "pilot",
+            "vehicle",
+            "begin",
+            "end",
+            "origin",
+            "destination",
+            "launch"
+        )
+        _categories = (
+            NORMAL_FLIGHT,
+            GUEST_FLIGHT,
+            CHECK_FLIGHT,
+            ONE_SEATED_TRAINING,
+            TWO_SEATED_TRAINING
+        )
+
+        if fields is None:
+            fields = _fields
+
+        if categories is None:
+            categories = _categories
+
+        where = " OR ".join(f"{x} IS NULL" for x in fields)
+        cats = ",".join(f"{int(x)}" for x in categories)
+        where = f"({where}) AND category IN ({cats})"
         yield from self._repo.select("missions", where=where)
 
     def diff(self,

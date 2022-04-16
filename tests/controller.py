@@ -92,20 +92,20 @@ class ControllerTestCase(unittest.TestCase):
             wilbur = Person(last_name="Wright", first_name="Wilbur")
 
             count = 0
-            for flight in ctrl.flights_of(wilbur):
+            for flight in ctrl.missions_of(wilbur):
                 count += 1
                 self.assertEqual("Wilbur", flight.pilot.first_name)
             self.assertEqual(2, count)
 
             otto = Person(1)
             count = 0
-            for flight in ctrl.flights_of(otto, since=datetime(2020, 4, 10)):
+            for flight in ctrl.missions_of(otto, since=datetime(2020, 4, 10)):
                 count += 1
                 self.assertIn(otto.uid, [p.uid for p in flight.crew()])
             self.assertEqual(2, count)
 
             count = 0
-            for flight in ctrl.flights_of(otto):
+            for flight in ctrl.missions_of(otto):
                 count += 1
                 self.assertIn(otto.uid, [p.uid for p in flight.crew()])
             self.assertEqual(4, count)
