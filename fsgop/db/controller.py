@@ -7,6 +7,7 @@ from datetime import datetime
 from .record import Record
 from .repository import Repository
 from .person import Person
+from .vehicle import Vehicle
 from .mission import Mission, ONE_SEATED_TRAINING, TWO_SEATED_TRAINING
 from .mission import NORMAL_FLIGHT, GUEST_FLIGHT, CHECK_FLIGHT
 
@@ -23,8 +24,11 @@ CREW = [
 
 
 class Controller(object):
-    def __init__(self, repo: Optional[Repository] = None) -> None:
-        self._repo = repo
+    def __init__(self, repo: Union[Repository, str, Path]) -> None:
+        if isinstance(repo, Repository):
+            self._repo = repo
+        else:
+            self._repo = Repository(db=repo)
 
     def __enter__(self) -> "Controller":
         return self
@@ -47,6 +51,19 @@ class Controller(object):
                                   self._repo.add(
                                       "vehicle_properties",
                                       self._repo.read("missions", **kwargs)))
+
+    def vehicles(self, **kwargs) -> Iterator[Vehicle]:
+        """Select vehicles from the database
+
+        Args:
+            **kwargs: Keyword arguments passed verbatim to
+                :meth:`fsgop.db.Repository.read`
+
+        Yields:
+            Complete Vehicle records matching the query
+        """
+        yield from self._repo.add("vehicle_properties",
+                                  self._repo.read("vehicles", **kwargs))
 
     def missions_of(self,
                     person: Person,
