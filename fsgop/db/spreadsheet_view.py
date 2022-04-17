@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import Optional, Iterable, Dict, Callable, Generator, Any, Union
+from typing import Optional, Iterable, Dict, Callable, Iterator, Any, Union
 from pathlib import Path
 from csv import writer as csv_writer
 
@@ -62,7 +62,7 @@ class SpreadsheetView(object):
                 self._write(recs, writer)
 
     @property
-    def header(self) -> Generator[tuple, None, None]:
+    def header(self) -> Iterator[tuple]:
         """Get header lines
 
         Yields:
@@ -72,6 +72,10 @@ class SpreadsheetView(object):
         if any(line):
             yield line
         return
+
+    @property
+    def columns(self) -> list:
+        return [".".join(cols) for cols in self._columns]
 
     def _write(self, recs, writer):
         for line in self.header:
@@ -104,6 +108,20 @@ class SpreadsheetView(object):
             retval = getattr(retval, attr, *args)
         return retval
 
+    @classmethod
+    def for_record(cls, rec: Record, **kwargs) -> "SpreadsheetView":
+        """Create view for a record
+
+        Args:
+            rec: Record instance or type
+            **kwargs: Keyword arguments passed verbatim to SpreadsheetView
+                constructor
+
+        Return:
+            SpreadsheetView instance
+        """
+        return cls(columns=cls.cols_from_layout(rec.layout()), **kwargs)
+
     @staticmethod
     def date_formatter(fmt: str) -> Callable:
         """Get formatter for datetime objects
@@ -117,3 +135,21 @@ class SpreadsheetView(object):
             with the specifed format.
         """
         return lambda x: x.strftime(fmt)
+
+    @staticmethod
+    def cols_from_layout(layout: dict) -> Iterator[str]:
+        """Infer columns from layout
+
+        Args:
+            layout: Record layout as returned by :meth:`~fsgop.db.Record.layout`
+
+        Return:
+            Iterable of strings as required by *columns* argument to constructor.
+        """
+        for k, v in layout.items():
+            if isinstance(v, str):
+                yield k
+            else:
+                for col in SpreadsheetView.cols_from_layout(v):
+                    yield f"{k}.{col}"
+

@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from fsgop.db import SpreadsheetView, SqliteDatabase, Repository
+from fsgop.db import Vehicle, Mission
 from fsgop.db.startkladde import schema_v3 as sk_schema
 
 
@@ -69,6 +70,25 @@ class SpreadsheetViewTestCase(unittest.TestCase):
                                               order="missions.begin,"
                                                     "missions.end")))
             #TODO -> need some checks here
+
+    def test_for_record(self):
+        cols = list(SpreadsheetView.cols_from_layout(Vehicle.layout()))
+        self.assertListEqual(["uid",
+                              "manufacturer",
+                              "model",
+                              "serial_number",
+                              "num_seats",
+                              "category",
+                              "registration",
+                              "comments"],
+                             cols)
+        mission = Mission()
+        view = SpreadsheetView.for_record(mission)
+        self.assertIn("begin", view.columns)
+        self.assertIn("end", view.columns)
+        self.assertIn("pilot.first_name", view.columns)
+        self.assertIn("copilot.last_name", view.columns)
+        self.assertIn("launch.uid", view.columns)
 
 
 def suite():
