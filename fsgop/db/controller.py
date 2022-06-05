@@ -8,8 +8,8 @@ from .record import Record
 from .repository import Repository
 from .person import Person
 from .vehicle import Vehicle
-from .mission import Mission, ONE_SEATED_TRAINING, TWO_SEATED_TRAINING
-from .mission import NORMAL_FLIGHT, GUEST_FLIGHT, CHECK_FLIGHT
+from .mission import Mission
+
 
 Match = namedtuple("Match", ["index", "rec1", "rec2"])
 
@@ -177,11 +177,14 @@ class Controller(object):
             "launch"
         )
         _categories = (
-            NORMAL_FLIGHT,
-            GUEST_FLIGHT,
-            CHECK_FLIGHT,
-            ONE_SEATED_TRAINING,
-            TWO_SEATED_TRAINING
+            Mission.categories["normal flight"],
+            Mission.categories["passenger flight"],
+            Mission.categories["training flight"],
+            Mission.categories["proficiency check"],
+            Mission.categories["supervised solo"],
+            Mission.categories["solo cross-country"],
+            Mission.categories["dual cross-country"],
+            Mission.categories["skill test"]
         )
 
         if fields is None:
