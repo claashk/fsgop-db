@@ -6,8 +6,6 @@ import logging
 from .sqlite_db import SqliteDatabase
 from .person import Person, PersonProperty, NameAdapter
 from .vehicle import Vehicle, VehicleProperty
-from .vehicle import SINGLE_ENGINE_PISTON, MOTOR_GLIDER, GLIDER, ULTRALIGHT
-from .vehicle import WINCH, UNDEFINED, TOURING_MOTOR_GLIDER
 from .mission import Mission
 
 from .utils import kwargs_from, get_value, set_value
@@ -20,7 +18,11 @@ LAUNCH_TYPE_AEROTOW = "airtow"
 LAUNCH_TYPE_SELF = "self"
 LAUNCH_TYPE_OTHER = "other"
 
-MOTOR_PLANES = {SINGLE_ENGINE_PISTON, TOURING_MOTOR_GLIDER, ULTRALIGHT}
+MOTOR_PLANES = {
+    Vehicle.categories["single engine piston"],
+    Vehicle.categories["touring motor glider"],
+    Vehicle.categories["ultralight"]
+}
 
 LOG_STRINGS = {
     LAUNCH_TYPE_WINCH: "W",
@@ -686,10 +688,11 @@ class Repository(object):
         Yields:
             One :class:`~fsgop.db.Vehicle` instance per launch method
         """
-        categories = {LAUNCH_TYPE_WINCH: WINCH,
-                      LAUNCH_TYPE_AEROTOW: SINGLE_ENGINE_PISTON,
-                      LAUNCH_TYPE_SELF: None,
-                      LAUNCH_TYPE_OTHER: UNDEFINED}
+        categories = {
+            LAUNCH_TYPE_WINCH: Vehicle.categories["winch"],
+            LAUNCH_TYPE_AEROTOW: Vehicle.categories["single engine piston"],
+            LAUNCH_TYPE_SELF: None,
+            LAUNCH_TYPE_OTHER: Vehicle.categories["undefined"]}
         i0 = self._db.max_id("planes") + 1
         self._launch_methods = dict()
         for uid, (rec, vehicle) in enumerate(self.get("launch_methods"), i0):
@@ -706,10 +709,12 @@ class Repository(object):
         Yields:
             One :class:`~fsgop.db.Vehicle` instance per plane in db
         """
-        categories = {"glider": GLIDER,
-                      "airplane": SINGLE_ENGINE_PISTON,
-                      "ultralight": ULTRALIGHT,
-                      "motorglider": MOTOR_GLIDER}
+        categories = {
+            "glider": Vehicle.categories["glider"],
+            "airplane": Vehicle.categories["single engine piston"],
+            "ultralight": Vehicle.categories["ultralight"],
+            "motorglider": Vehicle.categories["motor glider"]
+        }
         for rec, vehicle in self.get("planes", ignore=["category"]):
             vehicle.manufacturer = "UNDEFINED"
             vehicle.serial_number = f"sk-plane-{rec.uid}"
@@ -747,7 +752,7 @@ class Repository(object):
                                      order="departure_time"):
             mission.kind = categories[rec.type]
             launch_vehicle = self.vehicle_for_launch_method(rec.launch_uid)
-            if launch_vehicle.category == WINCH:
+            if launch_vehicle.category == Vehicle.categories["winch"]:
                 launch = self.winch_launch_for(mission, vehicle=launch_vehicle)
                 if launch.uid is None:
                     launch.uid = uid
