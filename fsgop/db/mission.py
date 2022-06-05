@@ -328,6 +328,10 @@ class Mission(Record):
         Return:
             Mission representing the aerotow
         """
+        if mission.uid is not None:
+            comment = f"Auto-generated aerotow for flight {mission.uid}"
+        else:
+            comment = f"Auto-generated aerotow for flight {mission}"
         m = cls(uid=None,
                 vehicle=vehicle,
                 pilot=pilot,
@@ -338,7 +342,7 @@ class Mission(Record):
                 destination=destination,
                 end=end,
                 charge_person=mission.pilot,
-                comments=f"Auto-generated aerotow for flight {mission.uid}")
+                comments=comment)
         m.launch = m
         return m
 
@@ -374,6 +378,11 @@ class Mission(Record):
         if begin is not None and end is None:
             end = datetime.combine((begin + timedelta(hours=24)).date(),
                                    time(hour=0, minute=0, second=0))
+
+        if mission.uid is not None:
+            comment = f"Auto-generated winch session for mission {mission.uid}"
+        else:
+            comment = f"Auto-generated winch session for mission {mission}"
         m = cls(uid=None,  # has to be set later by user
                 vehicle=vehicle,
                 pilot=operator,
@@ -384,6 +393,5 @@ class Mission(Record):
                 destination=mission.origin,  # winch does not move
                 end=end,
                 charge_person=None,
-                comments=str("Auto-generated winch mission for mission "
-                             f"{mission.uid}"))
+                comments=comment)
         return m
