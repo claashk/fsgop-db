@@ -11,8 +11,8 @@ from .person import Person
 #  -> solo cross-country: Allein-Überlandflug
 #  -> dual cross-country: Überlandflug mit Fluglehrer
 #  -> training flights: Schulungsflüge (license holders with FI)
-#  -> skill test: Praktische Prüfung (mit FE)
-#  -> proficiency check: Befähigungsüberprüfung (mit FE)
+#  -> skill test: Praktische Prüfung (student with FE)
+#  -> proficiency check: Befähigungsüberprüfung (license holder with FE)
 #  -> assessment of competence: Beurteilung der Kompetenz
 #    (FI, proficiency check for instructors)
 #
@@ -25,11 +25,17 @@ from .person import Person
 #  https://www.easa.europa.eu/sites/default/files/dfu/Sailplane%20Rule%20Book.pdf
 
 NORMAL_FLIGHT = 1
-GUEST_FLIGHT = 2
-CHECK_FLIGHT = 3
+PASSENGER_FLIGHT = 2
+TRAINING_FLIGHT = 3
 AEROTOW = 4
-ONE_SEATED_TRAINING = 11
-TWO_SEATED_TRAINING = 12
+PROFICIENCY_CHECK = 5
+
+SUPERVISED_SOLO = 11
+DUAL_INSTRUCTION = 12
+SOLO_CROSS_COUNTRY = 13
+DUAL_CROSS_COUNTRY = 14
+SKILL_TEST = 15
+
 WINCH_OPERATION = 21
 
 CHARGE_PILOT = 1
@@ -55,8 +61,10 @@ class Mission(Record):
         passenger3: Passenger
         passenger4: Passenger
         category: Mission category
-        num_stints: Number of landings/winch launches
-        launch: Tow-flight or winch mission period.
+        num_stints: Number of landings or winch launches
+        launch: Tow-flight or winch mission period. A string representing a
+            launch method ('FS', 'W') will result in a generic launch method of
+            the specified kind.
         origin: Departure location
         begin: Departure time (UTC)
         destination: Landing location
@@ -69,6 +77,44 @@ class Mission(Record):
         comments: Eventual comments
     """
     index = ["begin", "vehicle"]
+    winch_launch_keys = {"WS", "W"}
+    aerotow_keys = {"AT", "FS"}
+    self_launch_keys = {"SL", "ES"}
+    categories = {
+        "normal flight": NORMAL_FLIGHT,
+        "aerotow": AEROTOW,
+        "passenger flight": PASSENGER_FLIGHT,
+        "proficiency check": PROFICIENCY_CHECK,
+        "training flight": TRAINING_FLIGHT,
+        "supervised solo": SUPERVISED_SOLO,
+        "dual flight instruction": DUAL_INSTRUCTION,
+        "solo cross-country": SOLO_CROSS_COUNTRY,
+        "dual cross-country": DUAL_CROSS_COUNTRY,
+        "skill test": SKILL_TEST,
+        "winch session": WINCH_OPERATION
+    }
+
+    copilot_is_pic = {
+        TRAINING_FLIGHT,
+        PROFICIENCY_CHECK,
+        DUAL_INSTRUCTION,
+        DUAL_CROSS_COUNTRY,
+        SKILL_TEST
+    }
+
+    pilot_requires_license = {
+        NORMAL_FLIGHT,
+        PASSENGER_FLIGHT,
+        TRAINING_FLIGHT,
+        PROFICIENCY_CHECK
+    }
+
+    copilot_requires_fi_license = {
+        PROFICIENCY_CHECK,
+        TRAINING_FLIGHT,
+        DUAL_INSTRUCTION,
+        DUAL_CROSS_COUNTRY
+    }
 
     def __init__(
             self,
@@ -82,7 +128,7 @@ class Mission(Record):
             passenger4: Optional[Union[int, Person]] = None,
             category: Optional[Union[str, int]] = None,
             num_stints: Optional[int] = None,
-            launch: Optional[Union[int, "Mission"]] = None,
+            launch: Optional[Union[int, str, "Mission"]] = None,
             origin: Optional[str] = None,
             begin: Optional[Union[str, datetime]] = None,
             destination: Optional[str] = None,
@@ -101,9 +147,11 @@ class Mission(Record):
         self.passenger2 = to(Person, passenger2, default=None)
         self.passenger3 = to(Person, passenger3, default=None)
         self.passenger4 = to(Person, passenger4, default=None)
-        self.category = to(int, category, default=NORMAL_FLIGHT)
+        if isinstance(category, str):
+            self.category = self.categories[category]
+        else:
+            self.category = to(int, category, default=NORMAL_FLIGHT)
         self.num_stints = to(int, num_stints, default=1)
-        self.launch = to(Mission, launch, default=self)
         self.origin = to(str, origin, default=None)
         self.begin = to(datetime, begin, default=None)
         self.destination = to(str, destination, default=None)
@@ -118,13 +166,24 @@ class Mission(Record):
         self.charge_person = to(Person, charge_person, default=self.pilot)
         self.comments = to(str, comments, default=None)
 
-        if self.launch.key() == self.key():
-            self.launch = self  # avoid recursion
+        if isinstance(launch, str):
+            if launch in self.winch_launch_keys:
+                self.launch = self.winch_launch_for(self)
+            elif launch in self.aerotow_keys:
+                self.launch = self.aerotow_for(self)
+            elif launch in self.self_launch_keys:
+                self.launch = self
+            else:
+                raise ValueError(f"Invalid launch method string: '{launch}'")
+        else:
+            self.launch = to(Mission, launch, default=self)
+            if self.launch.key() == self.key():
+                self.launch = self  # avoid recursion
 
     def pic(self) -> Person:
         """Returns pilot in command
         """
-        if self.category == TWO_SEATED_TRAINING:
+        if self.category in self.copilot_is_pic:
             return self.copilot
         return self.pilot
 
@@ -141,6 +200,18 @@ class Mission(Record):
         """Returns the duration of the journey
         """
         return self.end - self.begin
+
+    def has_generic_launch(self) -> bool:
+        """A mission has a generic launch, iff no launch vehicle is specified
+
+        Return:
+            ``True`` if and only if the launch of this mission is generic
+        """
+        if self.launch is None:
+            return False
+
+        return (self.launch.category in [WINCH_OPERATION, AEROTOW]
+                and self.launch.vehicle is None)
 
     def almost_equal(self, other: "Mission") -> bool:
         """Check if two flights are conflicting.
@@ -260,6 +331,9 @@ class Mission(Record):
                 midnight of the day of the mission.
             end: End of this winch mission. If not provided, it is set to
                 midnight of the day following begin.
+
+        Return:
+            Mission representing the winch launch. Uid is not set.
         """
         # create a new mission
         if begin is None:
@@ -267,9 +341,7 @@ class Mission(Record):
         if begin is None and mission.end is not None:
             begin = datetime.combine(mission.end.date(),
                                      time(hour=0, minute=0, second=0))
-        if begin is None:
-            raise ValueError(f"Mission {mission} has neither begin nor end")
-        if end is None:
+        if begin is not None and end is None:
             end = datetime.combine((begin + timedelta(hours=24)).date(),
                                    time(hour=0, minute=0, second=0))
         m = cls(uid=None,  # has to be set later by user
@@ -285,7 +357,3 @@ class Mission(Record):
                 comments=str("Auto-generated winch mission for mission "
                              f"{mission.uid}"))
         return m
-
-
-
-

@@ -2,7 +2,6 @@
 
 import unittest
 from fsgop.db import Person, Vehicle, Mission
-from fsgop.db.mission import TWO_SEATED_TRAINING, NORMAL_FLIGHT
 
 from datetime import datetime, timedelta
 
@@ -32,7 +31,7 @@ class MissionTestCase(unittest.TestCase):
         self.assertIsNone(mission.passenger3)
         self.assertIsNone(mission.passenger4)
         self.assertIsNone(mission.vehicle)
-        self.assertEqual(NORMAL_FLIGHT, mission.category)
+        self.assertEqual(Mission.categories["normal flight"], mission.category)
         self.assertIsNone(mission.begin)
         self.assertIsNone(mission.end)
         self.assertIs(mission.launch, mission)
@@ -45,6 +44,27 @@ class MissionTestCase(unittest.TestCase):
         self.assertEqual("Otto", m.pilot.first_name)
         self.assertEqual("G123456", m.vehicle.serial_number)
         self.assertEqual(datetime(2021, 1, 1, 1, 20), m.end)
+
+        m = Mission(pilot=self.person1,
+                    copilot=self.person2,
+                    launch="FS")
+        self.assertTrue(m.has_generic_launch())
+        self.assertEqual(Mission.categories["aerotow"], m.launch.category)
+        self.assertIsNone(m.launch.vehicle)
+
+        m = Mission(pilot=self.person1,
+                    copilot=self.person2,
+                    launch="W")
+        self.assertTrue(m.has_generic_launch())
+        self.assertEqual(Mission.categories["winch session"], m.launch.category)
+        self.assertIsNone(m.launch.vehicle)
+
+        m = Mission(pilot=self.person1,
+                    copilot=self.person2,
+                    launch="ES")
+        self.assertFalse(m.has_generic_launch())
+        self.assertEqual(Mission.categories["normal flight"], m.launch.category)
+        self.assertIsNone(m.launch.vehicle)
 
     def test_layout(self):
         person_layout = {
@@ -101,7 +121,7 @@ class MissionTestCase(unittest.TestCase):
                      end="2021-01-01 1:20:00")
         self.assertEqual(self.person1, m1.pic())
 
-        m1.category = TWO_SEATED_TRAINING
+        m1.category = Mission.categories["dual flight instruction"]
         self.assertEqual(self.person2, m1.pic())
 
     def test_crew(self):
