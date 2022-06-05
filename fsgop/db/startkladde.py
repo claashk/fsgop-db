@@ -9,8 +9,6 @@ from .vehicle import Vehicle, VehicleProperty
 from .vehicle import SINGLE_ENGINE_PISTON, MOTOR_GLIDER, GLIDER, ULTRALIGHT
 from .vehicle import WINCH, UNDEFINED, TOURING_MOTOR_GLIDER
 from .mission import Mission
-from .mission import NORMAL_FLIGHT, GUEST_FLIGHT, ONE_SEATED_TRAINING
-from .mission import TWO_SEATED_TRAINING
 
 from .utils import kwargs_from, get_value, set_value
 
@@ -666,7 +664,7 @@ class Repository(object):
                 t = datetime.strptime(rec.medical_validity, DATE_FORMAT)
                 t += timedelta(hours=24)  # valid on expiration date
                 PersonProperty(kind="medical",
-                               value="class 2",
+                               value="class-2",
                                valid_until=t).add_to(person)
             #TODO add property for club membership
             yield person
@@ -735,11 +733,13 @@ class Repository(object):
         if self._winch_missions is not None:
             raise RuntimeError("Cannot invoke missions() concurrently")
         self._winch_missions = dict()
-        categories = {"normal": NORMAL_FLIGHT,
-                      "training_1": ONE_SEATED_TRAINING,
-                      "training_2": TWO_SEATED_TRAINING,
-                      "guest_external": GUEST_FLIGHT,
-                      "guest_private": GUEST_FLIGHT}
+        categories = {
+            "normal": Mission.categories["normal flight"],
+            "training_1": Mission.categories["supervised solo"],
+            "training_2": Mission.categories["dual flight instruction"],
+            "guest_external": Mission.categories["passenger flight"],
+            "guest_private": Mission.categories["passenger flight"]
+        }
 
         uid = self._db.max_id("flights") + 1
         for rec, mission in self.get("flights",
