@@ -61,6 +61,30 @@ class VehicleTestCase(unittest.TestCase):
 
         self.assertDictEqual(layout, VehicleProperty.layout())
 
+    def test_is_glider(self):
+        v = Vehicle(manufacturer="Grob",
+                    category="glider",
+                    model="G103B",
+                    serial_number="AB321")
+        self.assertTrue(v.is_glider())
+
+        v = Vehicle(manufacturer="Schempp-Hirth",
+                    category="motor glider",
+                    model="Arcus T",
+                    serial_number="AB321")
+        self.assertTrue(v.is_glider())
+
+        v = Vehicle(manufacturer="Diamond",
+                    category="touring motor glider",
+                    model="Super Dimona",
+                    serial_number="AB321")
+        self.assertFalse(v.is_glider())
+
+        v = Vehicle(manufacturer="Diamond",
+                    category="single engine piston",
+                    model="DA20",
+                    serial_number="AB321")
+        self.assertFalse(v.is_glider())
 
 def suite():
     """Get Test suite object

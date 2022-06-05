@@ -27,6 +27,16 @@ class Vehicle(Record):
         comments: any comment
     """
     index = ["manufacturer", "serial_number"]
+    categories = {
+        "single engine piston": SINGLE_ENGINE_PISTON,
+        "ultralight": ULTRALIGHT,
+        "touring motor glider": TOURING_MOTOR_GLIDER,
+        "motor glider": MOTOR_GLIDER,
+        "glider": GLIDER,
+        "winch": WINCH,
+        "car": CAR,
+        "undefined": UNDEFINED
+    }
 
     def __init__(self,
                  uid: Optional[int] = None,
@@ -34,7 +44,7 @@ class Vehicle(Record):
                  model: Optional[str] = None,
                  serial_number: Optional[str] = None,
                  num_seats: Optional[int] = None,
-                 category: Optional[int] = None,
+                 category: Optional[Union[int, str]] = None,
                  registration: Optional[Union["VehicleProperty", str]] = None,
                  comments: Optional[str] = None) -> None:
         super().__init__(uid=uid)
@@ -42,7 +52,10 @@ class Vehicle(Record):
         self.model = to(str, model, default=None)
         self.serial_number = to(str, serial_number, default=None)
         self.num_seats = to(int, num_seats, default=1)
-        self.category = to(int, category, default=None)
+        if isinstance(category, str):
+            self.category = self.categories[category]
+        else:
+            self.category = to(int, category, default=None)
         self.comments = to(str, comments, default=None)
 
         if registration:
@@ -71,6 +84,16 @@ class Vehicle(Record):
         for p in regs:
             return p.value
         return None
+
+    def is_glider(self) -> bool:
+        """Check if vehicle is a glider
+
+        Returns:
+            ``True`` if and only if the vehicle is either a glider or a motor
+            glider (not a touring motor glider)
+        """
+        return (self.category is not None
+                and self.category in (GLIDER, MOTOR_GLIDER))
 
 
 class VehicleProperty(Property):
