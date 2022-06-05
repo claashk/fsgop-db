@@ -213,6 +213,36 @@ class Mission(Record):
         return (self.launch.category in [WINCH_OPERATION, AEROTOW]
                 and self.launch.vehicle is None)
 
+    def is_aerotow(self) -> bool:
+        """Check if the current mission is a towflight for another mission
+        """
+        return self.category == AEROTOW
+
+    def is_matching_aerotow_for(self, mission: "Mission") -> bool:
+        """Check if this mission could be an aerotow for another mission
+
+        Checks if this mission instance could be an aerotow for another mission.
+
+        Args:
+            mission: Potentially towed mission
+
+        Return:
+            True if this mission could be the aerotow for ``mission``
+        """
+        if not self.is_aerotow():
+            return False
+
+        if mission.begin != self.begin or mission.origin != self.origin:
+            return False
+
+        if mission.launch is not None and not mission.launch.is_aerotow():
+            return False
+
+        if mission.vehicle is not None and not mission.vehicle.is_glider():
+            return False
+
+        return True
+
     def almost_equal(self, other: "Mission") -> bool:
         """Check if two flights are conflicting.
         

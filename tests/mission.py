@@ -201,6 +201,30 @@ class MissionTestCase(unittest.TestCase):
         self.assertIn(self.person2, persons)
         self.assertIn(towpilot, persons)
 
+    def test_aerotow(self):
+        m1 = Mission(pilot=self.person1,
+                     copilot=self.person2,
+                     launch="FS",
+                     vehicle=Vehicle(uid=21, category="glider"),
+                     begin="2020-12-31 15:00:00",
+                     end="2021-01-01 1:20:00")
+
+        m2 = Mission(pilot=self.person1,
+                     launch="FS",
+                     begin="2020-12-30 15:00:00",
+                     end="2021-01-01 1:20:00")
+
+        self.assertTrue(m1.launch.is_aerotow())
+        self.assertFalse(m1.is_aerotow())
+        self.assertTrue(m1.launch.is_matching_aerotow_for(m1))
+        self.assertFalse(m1.launch.is_matching_aerotow_for(m2))
+
+        self.assertTrue(m2.launch.is_aerotow())
+        self.assertFalse(m2.is_aerotow())
+        self.assertTrue(m2.launch.is_matching_aerotow_for(m2))
+        self.assertFalse(m2.launch.is_matching_aerotow_for(m1))
+
+
 
 def suite():
     """Get Test suite object
