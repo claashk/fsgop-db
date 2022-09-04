@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 
 import unittest
-from fsgop.db import Person, PersonProperty, NameAdapter
+from fsgop.db import Person, PersonProperty
 from fsgop.db.utils import to
 from fsgop.db.person import split_title, split_count
 
 from datetime import date, datetime
-from collections import namedtuple
 
 
 class PersonTestCase(unittest.TestCase):
@@ -106,7 +105,6 @@ class PersonTestCase(unittest.TestCase):
 
         p = Person(first_name="Twiggy")
         self.assertEqual("Twiggy", p.name)
-
 
     def test_comparison(self):
         p1 = Person(first_name="Otto", last_name="Lilienthal")
@@ -220,36 +218,6 @@ class PersonTestCase(unittest.TestCase):
                   "value": "value"}
 
         self.assertDictEqual(layout, PersonProperty.layout())
-
-    def test_split_names(self):
-        Rec = namedtuple("Rec",
-                         ["pilot_name",
-                          "copilot_last_name",
-                          "copilot_first_name",
-                          "passenger_last_name",
-                          "passenger_name"])
-
-        records = [
-            Rec("Lindberg, Charles", "Flyer", "Victor", "Pax", "Pax, Herbert"),
-            Rec("Sky", "Henry", "Crash", "", "Chase")
-        ]
-        recs, rec_type = NameAdapter.apply(records)
-        self.assertEqual("ModifiedRec", rec_type.__name__)
-        self.assertTupleEqual(rec_type._fields,
-                              ("copilot_last_name",
-                               "copilot_first_name",
-                               "pilot_first_name",
-                               "pilot_last_name",
-                               "passenger_first_name",
-                               "passenger_last_name"))
-
-        output_records = list(recs)
-        self.assertEqual("Charles", output_records[0].pilot_first_name)
-        self.assertEqual("Flyer", output_records[0].copilot_last_name)
-        self.assertEqual("Pax", output_records[0].passenger_last_name)
-        self.assertEqual("", output_records[1].pilot_first_name)
-        self.assertEqual("Sky", output_records[1].pilot_last_name)
-        self.assertEqual("Chase", output_records[1].passenger_last_name)
 
 
 def suite():

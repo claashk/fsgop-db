@@ -4,7 +4,8 @@ from pathlib import Path
 import logging
 
 from .sqlite_db import SqliteDatabase
-from .person import Person, PersonProperty, NameAdapter
+from .tuple_adapter import NameAdapter
+from .person import Person, PersonProperty
 from .vehicle import Vehicle, VehicleProperty
 from .mission import Mission
 

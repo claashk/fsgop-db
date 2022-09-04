@@ -1,5 +1,6 @@
 from .property import Property
-from .person import Person, PersonProperty, NameAdapter
+from .tuple_adapter import NameAdapter, TimeAdapter
+from .person import Person, PersonProperty
 from .vehicle import Vehicle, VehicleProperty
 from .mission import Mission
 from .table_io import CsvParser
