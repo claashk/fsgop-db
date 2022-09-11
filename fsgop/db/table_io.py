@@ -161,7 +161,7 @@ class CsvParser(object):
         header (dict): Dictionary containing name and regular expression for
             header fields. Each regular expression is matched against each row
             of the file, where separators are replaced by spaces.
-        translation(dict): Translations for headings. Each key matching a
+        translate(dict): Translations for headings. Each key matching a
             column heading will be replaced by the corresponding value in the
             parsed records
 
@@ -178,8 +178,8 @@ class CsvParser(object):
             will be a namedtuple type containing the column headings. If no
             heading line is found, then this is the type :class:`list`.
     """
-    def __init__(self, headings=None, header=None, translation=None, force_lowercase=False):
-        self.translate = dict(translation) if translation is not None else dict()
+    def __init__(self, headings=None, header=None, translate=None, force_lowercase=False):
+        self.translate = dict(translate) if translate is not None else dict()
         self.force_lowercase = bool(force_lowercase)
         if self.force_lowercase:
             self.translate = {k.lower(): v.lower()
@@ -260,7 +260,8 @@ class CsvParser(object):
                 continue
 
             if self.headings and all([p.search(row_str) for p in self.headings]):
-                names = [s.replace(' ', '_').replace('-', '_') for s in row]
+                names = [s.replace(' ', '_').replace('-', '_') .replace(".", "")
+                         for s in row]
                 if self.force_lowercase:
                     names = [s.lower() for s in names]
                 return header, namedtuple('RowType',

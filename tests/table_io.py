@@ -19,7 +19,7 @@ class TableIOTestCase(unittest.TestCase):
     def test_startkladde_csv(self):
         reader = CsvParser(headings=["Pilot Vorname", "Pilot Nachname"],
                            force_lowercase=True,
-                           translation={"Pilot_Vorname": "pilot_first_name",
+                           translate={"Pilot_Vorname": "pilot_first_name",
                                         "Pilot_Nachname": "pilot_last_name"})
         retval = list(reader(self.test_dir / "startkladde-format.csv"))
         expected_columns = [
