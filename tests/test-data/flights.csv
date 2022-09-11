@@ -1,0 +1,4 @@
+Flug-Nr.;Datum;Muster;Kennzeichen;Pilot;Begleiter;Startart;Art;Startort;Zielort;Start;Landung;Dauer;Bemerkungen;Flugzeit gesamt;PIC h;PIC Ldg;Dual h;Dual Ldg;Instr h;Instr Ldg;Flugstrecke
+1234;30.07.2019;Twin III;D-1234;Wright, Wilbur;Lilienthal, Otto;W;I;Hayingen;Hayingen;09:23;09:34;00:11;;3156:00;0:11;1;;;0:11;1;
+1235;31.07.2019;LS4;D-2234;Wright, Wilbur;;W;;EDDM;EDDM;14:40;15:08;00:28;;3156:37;0:28;1;;;;;
+1236;02.08.2019;Husky;D-EFGH;Wright, Wilbur;;E;;EDDS;EDDS;11:52;16:34;04:42;;3161:26;4:42;1;;;;;313

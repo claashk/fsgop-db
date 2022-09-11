@@ -1,9 +1,12 @@
 import logging
-from typing import Iterable, Union, Generator, Optional, Callable
+from typing import Iterable, Union, Iterator, Optional, Callable, Type
 from pathlib import Path
 from collections import namedtuple
+from functools import reduce
+from datetime import datetime
 
-from .person import Person, PersonProperty, Property, NameAdapter
+from .tuple_adapter import AdapterBase, apply
+from .person import Person, PersonProperty, Property
 from .vehicle import Vehicle, VehicleProperty
 from .mission import Mission
 from .sqlite_db import SqliteDatabase
@@ -20,11 +23,13 @@ logger = logging.getLogger(__name__)
 class Repository(object):
     """Repository implementation
 
-    The repository is an intermediate layer between database and application (
-    controllers, views). It wraps a database with a given schema and allows I/O
-    operations using the native datamodel (Person, Vehicle, Mission, ...). This
-    is the main distinction to the database, which works data model agnostic and
-    uses only tuples and the native schema for I/O operations.
+    The repository is an intermediate layer between database and application
+    (controllers, views). It wraps a database with a given schema and allows I/O
+    operations using the native data model (e.g. :class:`~fsgop.db.Person`,
+    :class:`fsgop.db.Vehicle`, :class:`fsgop.db.Mission`, ...). This
+    distinguishes it from the :class:`~fsgop.db.Database` class, which uses only
+    tuples and the native database schema and thus operates in a data model
+    agnostic fashion.
 
     The repository can be used as context manager.
 
@@ -67,7 +72,7 @@ class Repository(object):
         self.close()
         self._db = SqliteDatabase(db=db, schema=schema_v1, **kwargs)
 
-    def close(self):
+    def close(self) -> None:
         """Close the underlying database (file)"""
         if self._db is not None:
             self._db.disconnect()
@@ -77,7 +82,7 @@ class Repository(object):
                table: str,
                where: Optional[str] = None,
                order: Optional[str] = None,
-               **kwargs) -> Generator[Record, None, None]:
+               **kwargs) -> Iterator[Record]:
         """Select records from a table
 
         Args:
@@ -104,7 +109,7 @@ class Repository(object):
              table: str,
              where: Optional[str] = None,
              order: Optional[str] = None,
-             **kwargs) -> Generator[Record, None, None]:
+             **kwargs) -> Iterator[Record]:
         """Read (joined) records from database
 
         Arguments:
@@ -128,7 +133,7 @@ class Repository(object):
                                  **kwargs):
             yield _type(**kwargs_from(rec, layout, None))
 
-    def find(self, records: Iterable[Record]) -> Generator[Record, None, None]:
+    def find(self, records: Iterable[Record]) -> Iterator[Record]:
         """Find records in the database
 
         Args:
@@ -166,7 +171,7 @@ class Repository(object):
     def add(self,
             table: str,
             recs: Iterable[Record],
-            allow: Optional[Callable] = None) -> Generator[Record, None, None]:
+            allow: Optional[Callable] = None) -> Iterator[Record]:
         """Add properties to records
 
         Args:
@@ -199,10 +204,126 @@ class Repository(object):
                     _property.add_to(dest[_property.rec])
             yield rec
 
+    def set_uid_from_property(self,
+                              record: Record,
+                              kind: str,
+                              since: Optional[datetime] = None,
+                              until: Optional[datetime] = None) -> None:
+        """Try to set the uid of a record using a given property
+
+        Args:
+            record: Record for which to update the uid
+            kind: Name/kind of the property to use for uid lookup
+            since: Optional lower bound of validity for the property. If ``None``
+                properties can have arbitrary valid_from dates.
+            until: Optional upper bound fo validity for the property. If ``None``
+                properties can have arbitrary valid_until dates.
+        """
+        valid_properties = []
+        for prop in record[kind]:
+            if until is not None and prop.valid_from > until:
+                continue
+            if since is not None and prop.valid_until < since:
+                continue
+            valid_properties.append(prop)
+
+        if len(valid_properties) != 1:
+            return
+        prop = valid_properties[0]
+
+        # check if we are dealing with 'vehicle' or 'person' properties
+        _type = type(prop).__name__.split("Property")[0].lower()
+
+        # Try to find a unique matching property in database
+        where = f"kind='{prop.kind}' AND value='{prop.value}'"
+        if since:
+            where = f"{where} AND valid_until>={since}"
+        if until:
+            where = f"{where} AND valid_from<={until}"
+        matches = list(self.select(f"{_type}_properties", where=where))
+        if len(matches) == 1:
+            setattr(record, "uid", getattr(matches[0], "rec"))
+
+    def update_mission(self,
+                       mission: Mission,
+                       cls: Type,
+                       by: str = "") -> None:
+        """Update all referenced mission attributes of a given type
+
+        Checks all referenced Records of a given type (e.g. Person, Vehicle) and
+        attempts to replace them with instances in the repository.
+
+        Args:
+            mission: Mission to update
+            cls: Type of Record to update (Person, Vehicle)
+            by: Name of a property. If provided, then this property will be
+                used to set the uid of the respective cls instances before
+                looking them up in the database. Useful e.g. to lookup Vehicles
+                by registration.
+        """
+        recs = []
+        attrs = []
+        for attr, rec in mission.select(cls):
+            if by:
+                self.set_uid_from_property(rec,
+                                           by,
+                                           since=mission.begin,
+                                           until=mission.end)
+            if rec:
+                recs.append(rec)
+                attrs.append(attr)
+        recs = [rec for rec in self.find(recs)]  # replace by database records
+        for attr, rec in zip(attrs, recs):
+            path = attr.split(".")
+            setattr(reduce(getattr, path[:-1], mission), path[-1], rec)
+
+    def build_mission(self, missions: Iterable[Mission]) -> Iterator[Mission]:
+        """Completes incomplete mission records
+
+        Attempts to assign uids to all Persons and Vehicles in a set of missions.
+        If aerotows are specified as separate missions, towed flight and aerotow
+        are joined and the aerotow is always yielded before the mission.
+
+        Aerotow matching requires aerotows to either directly precede or follow
+        their respective (glider) missions.
+
+        Args:
+            missions: Iterable of incomplete missions
+
+        Yields:
+            One mission per input mission with updated uids and launches
+        """
+        prev = None  # previous mission used to match aerotows to missions
+        for mission in missions:
+            self.update_mission(mission, Person)
+            self.update_mission(mission, Vehicle, by="registration")
+
+            if mission.is_aerotow():
+                if prev is None:
+                    prev = mission  # next mission must be towed flight
+                    continue
+
+                if mission.is_matching_aerotow_for(prev):
+                    prev.launch = mission  # previous mission was towed flight
+                    mission = prev
+                    prev = mission.launch
+            elif mission.has_generic_launch() and mission.launch.is_aerotow():
+                if prev is None:
+                    prev = mission  # next mission must be aerotow if specified
+                    continue
+
+                if prev.is_matching_aerotow_for(mission):
+                    mission.launch = prev
+
+            if prev is not None:
+                yield prev
+                prev = None
+            yield mission
+
     def replace(self,
                 records: Iterable[Record],
                 replacement: Optional[Record] = None) -> None:
-        """Replaces a number of records by another record in all tables
+        """Replaces a number of records by a single other record in all tables
 
         Args:
             records: Iterable of records to be replaced. These records will be
@@ -345,7 +466,9 @@ class Repository(object):
                   headings: Optional[Iterable[str]] = None,
                   table: Optional[str] = None,
                   parsers: Optional[dict] = None,
-                  **kwargs) -> Generator[Record, None, None]:
+                  translate: Optional[dict] = None,
+                  adapters: Optional[Iterable[AdapterBase]] = None,
+                  **kwargs) -> Iterator[Record]:
         """Read table from csv file
 
         Args:
@@ -360,6 +483,11 @@ class Repository(object):
                 callable accepting a string as value. The value returned by the
                 callable will be passed to the Record constructor. Columns for
                 which no parser is defined are passed on unmodified.
+            translate: Column translations. Passed verbatim to CsvParser
+            adapters: Iterable of adapter instances derived from AdapterBase.
+                These adapters are applied to the sequence of output records
+                returned by the csv parser before passing the records to the
+                parsers (if any).
             **kwargs: Keyword arguments passed verbatim to CsvReader.__call__.
 
         Yields:
@@ -372,10 +500,15 @@ class Repository(object):
             s = "|".join(' '.join(it.path) for it in traverse(table, depth=2))
             s = s.replace("_", " ")
             headings = [s]
-        csv_parser = CsvParser(headings=headings, force_lowercase=True)
+        csv_parser = CsvParser(headings=headings,
+                               translate=translate,
+                               force_lowercase=True)
         generator = csv_parser(path, encoding=encoding, **kwargs)
-        generator, rectype = NameAdapter.apply(generator,
-                                               rectype=csv_parser.row_type)
+        if adapters:
+            generator, rectype = apply(adapters, generator, csv_parser.row_type)
+        else:
+            rectype = csv_parser.row_type
+
         _type = self.native_types[table]
         layout = _type.layout(allow=rectype._fields)
 
