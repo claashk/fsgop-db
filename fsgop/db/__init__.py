@@ -1,5 +1,5 @@
 from .property import Property
-from .tuple_adapter import NameAdapter, TimeAdapter
+from .tuple_adapter import NameAdapter, DateTimeAdapter
 from .person import Person, PersonProperty
 from .vehicle import Vehicle, VehicleProperty
 from .mission import Mission

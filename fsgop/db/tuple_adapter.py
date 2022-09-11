@@ -1,5 +1,6 @@
 from typing import Optional, Type, Iterable, Tuple
 from collections import namedtuple
+
 from .utils import Sequence
 
 
@@ -10,11 +11,10 @@ class AdapterBase(object):
         rectype: Type of the tuples forming the input sequence. Each tuple in
             the input sequence must be of this type.
     """
-    def __init__(self, rectype: Type[namedtuple]) -> None:
+    def __init__(self) -> None:
         self._copy = []  # list of fields copied from input tuples
         self._add = []   # list of additional fields created by this class
-        self._rectype = rectype
-        self.set_fields(rectype)
+        self._result_type = None
 
     def __call__(self, t: namedtuple) -> namedtuple:
         """Convert input tuple to output tuple
@@ -26,7 +26,7 @@ class AdapterBase(object):
             named tuple with combined fields replaced by first name and last name
             fields.
         """
-        return self._rectype._make(self.iter_args(t))
+        return self._result_type._make(self.iter_args(t))
 
     def __bool__(self) -> bool:
         """Check if any fields are added by this functor
@@ -38,11 +38,11 @@ class AdapterBase(object):
         return bool(self._add)
 
     @property
-    def record_type(self) -> Type[namedtuple]:
+    def result_type(self) -> Type[namedtuple]:
         """Get record type returned by this functor"""
-        return self._rectype
+        return self._result_type
 
-    def set_fields(self, rectype: Type[namedtuple]) -> None:
+    def configure_for(self, rectype: Type[namedtuple]) -> None:
         """Set fields to copy or add for a given record type
 
         Has to be implemented by the derived class.
@@ -51,7 +51,7 @@ class AdapterBase(object):
             rectype: Type of the tuples forming the input sequence. Each tuple in
                 the input sequence must be of this type.
         """
-        raise NotImplementedError()
+        self._result_type = None
 
     def iter_args(self, t: namedtuple) -> Iterable:
         """Iterate over arguments of output tuple
@@ -66,11 +66,10 @@ class AdapterBase(object):
         """
         raise NotImplementedError()
 
-    @classmethod
-    def apply(cls,
-              records: Iterable[namedtuple],
-              rectype: Optional[Type[namedtuple]] = None
-              ) -> Tuple[Iterable[namedtuple], Type[namedtuple]]:
+    def apply_to(self,
+                 records: Iterable[namedtuple],
+                 rectype: Optional[Type[namedtuple]] = None
+                 ) -> Tuple[Iterable[namedtuple], Type[namedtuple]]:
         """Apply name adapter to sequence if required
 
         Args:
@@ -81,13 +80,20 @@ class AdapterBase(object):
             tuple containing a generator of output tuples and the type of the
             output tuples.
         """
+        self._copy.clear()
+        self._add.clear()
+        self._result_type = None
         if rectype is None:
             seq = Sequence(records)
             rectype = seq.element_type
             records = seq
-        f = cls(rectype) if rectype is not None else None
-        if f:
-            return map(f, records), f.record_type
+
+        if rectype is not None:
+            # seq is not empty
+            self.configure_for(rectype)
+            if self:
+                return map(self, records), self._result_type
+
         return records, rectype
 
 
@@ -97,7 +103,7 @@ class NameAdapter(AdapterBase):
     Args:
         rectype: Type of the input tuple.
     """
-    def set_fields(self, rectype: Type[namedtuple]) -> None:
+    def configure_for(self, rectype: Type[namedtuple]) -> None:
         add = []
         for key in rectype._fields:
             if not key.endswith("name") or key.endswith("nickname"):
@@ -118,8 +124,8 @@ class NameAdapter(AdapterBase):
                 if not all(s in rectype._fields or s in add for s in names):
                     add.extend(names)
         if add:
-            self._rectype = namedtuple(f"Modified{rectype.__name__}",
-                                       self._copy + add)
+            self._result_type = namedtuple(f"Modified{rectype.__name__}",
+                                           self._copy + add)
             self._add = [f"{s[:-10]}name" for s in add[::2]]  # first names only
 
     def iter_args(self, t: namedtuple) -> Iterable:
@@ -141,32 +147,35 @@ class NameAdapter(AdapterBase):
             yield last_name.strip()
 
 
-class TimeAdapter(AdapterBase):
-    """Joins separate date and time fields into a single field
+class DateTimeAdapter(AdapterBase):
+    """Joins separate date and time fields into a single datetime field
 
     Args:
-        rectype: Type of the input tuple.
+        delimiter: Delimiter used to join time and date strings
     """
-    def set_fields(self, rectype: Type[namedtuple]) -> None:
-        for key in rectype._fields:
-            if key.endswith("date"):
-                prefix = key[:-4]
-                copy = f"{prefix}time" not in rectype._fields
-            elif key.endswith("time"):
-                prefix = key[:-4]
-                copy = f"{prefix}date" not in rectype._fields
-            else:
-                copy, prefix = True, None
+    def __init__(self, delimiter: str = " "):
+        super().__init__()
+        self._delimiter = delimiter
 
-            if copy:
-                self._copy.append(key)
-            else:
-                if not (prefix in rectype._fields or prefix in self._add):
-                    self._add.append(prefix)
+    def configure_for(self, rectype: Type[namedtuple]) -> None:
+        self._copy = list(rectype._fields)
+
+        for prefix in ("begin", "end"):
+            if f"{prefix}_date" in self._copy and f"{prefix}_time" in self._copy:
+                self._copy.remove(f"{prefix}_date")
+                self._copy.remove(f"{prefix}_time")
+                if prefix not in self._copy:
+                    self._add.append((f"{prefix}_date", f"{prefix}_time"))
+
+        if "end_time" in self._copy and "end_date" not in self._copy:
+            if "begin_date" in rectype._fields:
+                self._copy.remove("end_time")
+                self._add.append(("begin_date", "end_time"))
+
         if self._add:
-            add = [s.strip("_").strip() for s in self._add]
-            self._rectype = namedtuple(f"Modified{rectype.__name__}",
-                                       self._copy + add)
+            add = ["_".join(s2.split("_")[:-1]).strip() for s1, s2 in self._add]
+            self._result_type = namedtuple(f"Modified{rectype.__name__}",
+                                           self._copy + add)
 
     def iter_args(self, t: namedtuple) -> Iterable:
         """Iterate over arguments of output tuple
@@ -180,7 +189,25 @@ class TimeAdapter(AdapterBase):
         for f in self._copy:
             yield getattr(t, f)
 
-        for f in self._add:
-            _date = getattr(t, f"{f}date").strip()
-            _time = getattr(t, f"{f}time").strip()
-            yield f"{_date}T{_time}"
+        for f1, f2 in self._add:
+            yield self._delimiter.join((getattr(t, f1), getattr(t, f2)))
+
+
+def apply(adapters: Iterable[AdapterBase],
+          records: Iterable[namedtuple],
+          rectype: Optional[Type[namedtuple]] = None
+          ) -> Tuple[Iterable[namedtuple], Type[namedtuple]]:
+    """Consecutively apply a number of adapters to a sequence
+
+    Args:
+        adapters: Iterable of adapters to apply to a sequence
+        records: Input sequence
+        rectype: Type of records in input sequence. Auto-detected from first
+            record, if not specified.
+
+    Returns:
+        Adapted sequence and type of elements in this sequence
+    """
+    for adapter in adapters:
+        records, rectype = adapter.apply_to(records, rectype)
+    return records, rectype
