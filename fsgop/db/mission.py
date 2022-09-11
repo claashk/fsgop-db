@@ -78,8 +78,8 @@ class Mission(Record):
     """
     index = ["begin", "vehicle"]
     winch_launch_keys = {"WS", "W"}
-    aerotow_keys = {"AT", "FS"}
-    self_launch_keys = {"SL", "ES"}
+    aerotow_keys = {"AT", "FS", "F"}
+    self_launch_keys = {"SL", "ES", "E"}
     categories = {
         "normal flight": NORMAL_FLIGHT,
         "aerotow": AEROTOW,
