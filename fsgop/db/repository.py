@@ -237,9 +237,9 @@ class Repository(object):
         # Try to find a unique matching property in database
         where = f"kind='{prop.kind}' AND value='{prop.value}'"
         if since:
-            where = f"{where} AND valid_until>={since}"
+            where = f"{where} AND valid_until>='{since}'"
         if until:
-            where = f"{where} AND valid_from<={until}"
+            where = f"{where} AND valid_from<='{until}'"
         matches = list(self.select(f"{_type}_properties", where=where))
         if len(matches) == 1:
             setattr(record, "uid", getattr(matches[0], "rec"))

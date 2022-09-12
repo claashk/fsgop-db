@@ -5,6 +5,7 @@ from pathlib import Path
 import logging
 from io import StringIO
 from datetime import date, datetime
+from copy import deepcopy
 
 from fsgop.db import Repository, SqliteDatabase, Person, Vehicle, Mission
 from fsgop.db import NameAdapter, DateTimeAdapter
@@ -142,7 +143,7 @@ class RepositoryTestCase(unittest.TestCase):
         self.assertEqual("licence", properties[1].kind)
         self.assertEqual("FI-SEP-4321", properties[1].value)
 
-    def test_load_flights(self):
+    def test_buid_missions_from_csv(self):
         _time_parser = lambda s: datetime.strptime(s, "%d.%m.%Y %H:%M") if s else None
 
         parsers = {
@@ -170,6 +171,8 @@ class RepositoryTestCase(unittest.TestCase):
                                           parsers=parsers,
                                           adapters=adapters,
                                           delimiter=";"))
+            # TODO deepcopy fails here -> check
+            # missions = list(repo.build_mission(deepcopy(flights)))
 
         self.assertEqual(3, len(flights))
         for flight in flights:
@@ -179,8 +182,12 @@ class RepositoryTestCase(unittest.TestCase):
             self.assertIsInstance(flight.launch, Mission)
             self.assertEqual("Wilbur", flight.pilot.first_name)
             self.assertEqual("Wright", flight.pilot.last_name)
+            self.assertIsNone(flight.pilot.uid)
+            self.assertIsNone(flight.vehicle.uid)
+
         self.assertEqual("Lilienthal", flights[0].copilot.last_name)
-        self.assertEqual("Otto", flights[0].copilot.first_name)
+        self.assertEqual("Otto K.", flights[0].copilot.first_name)
+        self.assertIsNone(flights[0].copilot.uid)
 
         self.assertEqual("D-1234", flights[0].vehicle.registration)
         self.assertEqual("D-2234", flights[1].vehicle.registration)
@@ -197,6 +204,7 @@ class RepositoryTestCase(unittest.TestCase):
         self.assertEqual(datetime(2019, 7, 30, 9, 34, 0), flights[0].end)
         self.assertEqual(datetime(2019, 7, 31, 15, 8, 0), flights[1].end)
         self.assertEqual(datetime(2019, 8, 2, 16, 34, 0), flights[2].end)
+
 
 
 def suite():
