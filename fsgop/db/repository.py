@@ -288,7 +288,8 @@ class Repository(object):
         their respective (glider) missions.
 
         Args:
-            missions: Iterable of incomplete missions
+            missions: Iterable of incomplete missions. The missions records will
+                be modified.
 
         Yields:
             One mission per input mission with updated uids and launches

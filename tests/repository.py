@@ -22,10 +22,10 @@ logger = logging.getLogger()
 
 
 class RepositoryTestCase(unittest.TestCase):
+    keep_artifacts = True
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.keep_artifacts = False
         with SqliteDatabase.from_dump(DATA_DIR,
                                       schema=sk_schema,
                                       db=str(STARTKLADDE_DB_PATH)) as db:
@@ -40,7 +40,6 @@ class RepositoryTestCase(unittest.TestCase):
                 pass
 
     def setUp(self) -> None:
-        self.keep_artifacts = True
         self.out = StringIO()
         self.stream_handler = logging.StreamHandler(self.out)
         logger.addHandler(self.stream_handler)
@@ -59,17 +58,16 @@ class RepositoryTestCase(unittest.TestCase):
             yield repo
 
     def test_startkladde_import(self):
+        missions = []
         for repo in self.create_repo():
             missions = list(repo.add("vehicle_properties",
                                      repo.read("missions"),
                                      Repository.valid_during_mission))
-
         self.assertEqual(7, len(missions))
         for m in missions:
             if m.vehicle.category != WINCH:
                 self.assertIn(m.vehicle.registration,
                               ("D-1234", "D-2234", "D-EFGH"))
-
         out = self.out.getvalue()
         #print("Logger Output:", out)
         self.assertEqual(1,
