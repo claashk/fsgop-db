@@ -86,6 +86,7 @@ class VehicleTestCase(unittest.TestCase):
                     serial_number="AB321")
         self.assertFalse(v.is_glider())
 
+
 def suite():
     """Get Test suite object
     """

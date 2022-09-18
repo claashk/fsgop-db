@@ -5,7 +5,6 @@ from pathlib import Path
 import logging
 from io import StringIO
 from datetime import date, datetime
-from copy import deepcopy
 
 from fsgop.db import Repository, SqliteDatabase, Person, Vehicle, Mission
 from fsgop.db import NameAdapter, DateTimeAdapter
@@ -143,7 +142,7 @@ class RepositoryTestCase(unittest.TestCase):
         self.assertEqual("licence", properties[1].kind)
         self.assertEqual("FI-SEP-4321", properties[1].value)
 
-    def test_buid_missions_from_csv(self):
+    def test_read_missions_from_csv(self):
         _time_parser = lambda s: datetime.strptime(s, "%d.%m.%Y %H:%M") if s else None
 
         parsers = {
@@ -171,9 +170,6 @@ class RepositoryTestCase(unittest.TestCase):
                                           parsers=parsers,
                                           adapters=adapters,
                                           delimiter=";"))
-            # TODO deepcopy fails here -> check
-            # missions = list(repo.build_mission(deepcopy(flights)))
-
         self.assertEqual(3, len(flights))
         for flight in flights:
             self.assertIsInstance(flight, Mission)
@@ -205,6 +201,63 @@ class RepositoryTestCase(unittest.TestCase):
         self.assertEqual(datetime(2019, 7, 31, 15, 8, 0), flights[1].end)
         self.assertEqual(datetime(2019, 8, 2, 16, 34, 0), flights[2].end)
 
+    def test_build_missions(self):
+        _time_parser = lambda s: datetime.strptime(s, "%d.%m.%Y %H:%M") if s else None
+
+        parsers = {
+            "begin": _time_parser,
+            "end": _time_parser
+        }
+        translate = {
+            "Datum": "begin_date",
+            "Kennzeichen": "vehicle_registration",
+            "Pilot": "pilot_name",
+            "Begleiter": "copilot_name",
+            "Startort": "origin",
+            "Zielort": "destination",
+            "Start": "begin_time",
+            "Landung": "end_time",
+            "Startart": "launch"
+        }
+        flights = []
+        adapters = [NameAdapter(), DateTimeAdapter()]
+        for repo in self.create_repo():
+            flights.extend(repo.build_mission(repo.read_file(
+                CSV_PATH / "flights.csv",
+                headings=["Datum", "Muster"],
+                table="missions",
+                translate=translate,
+                parsers=parsers,
+                adapters=adapters,
+                delimiter=";")))
+
+        plane_ids = (1 ,2, 10)
+        for plane_uid, flight in zip(plane_ids, flights):
+            self.assertIsInstance(flight, Mission)
+            self.assertIsInstance(flight.pilot, Person)
+            self.assertIsInstance(flight.vehicle, Vehicle)
+            self.assertIsInstance(flight.launch, Mission)
+            self.assertEqual("Wilbur", flight.pilot.first_name)
+            self.assertEqual("Wright", flight.pilot.last_name)
+            self.assertEqual(2, flight.pilot.uid)
+            self.assertEqual(plane_uid, flight.vehicle.uid)
+            self.assertIsNone(flight.vehicle.registration)  # regs not read
+
+        self.assertEqual("Lilienthal", flights[0].copilot.last_name)
+        self.assertEqual("Otto K.", flights[0].copilot.first_name)
+        self.assertEqual(1, flights[0].copilot.uid)
+
+        self.assertEqual(WINCH_OPERATION, flights[0].launch.category)
+        self.assertEqual(WINCH_OPERATION, flights[1].launch.category)
+        self.assertIs(flights[2], flights[2].launch)
+
+        self.assertEqual(datetime(2019, 7, 30, 9, 23, 0), flights[0].begin)
+        self.assertEqual(datetime(2019, 7, 31, 14, 40, 0), flights[1].begin)
+        self.assertEqual(datetime(2019, 8, 2, 11, 52, 0), flights[2].begin)
+
+        self.assertEqual(datetime(2019, 7, 30, 9, 34, 0), flights[0].end)
+        self.assertEqual(datetime(2019, 7, 31, 15, 8, 0), flights[1].end)
+        self.assertEqual(datetime(2019, 8, 2, 16, 34, 0), flights[2].end)
 
 
 def suite():
