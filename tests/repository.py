@@ -220,17 +220,19 @@ class RepositoryTestCase(unittest.TestCase):
         flights = []
         adapters = [NameAdapter(), DateTimeAdapter()]
         for repo in self.create_repo():
-            flights.extend(repo.build_mission(repo.read_file(
-                CSV_PATH / "flights.csv",
-                headings=["Datum", "Muster"],
-                table="missions",
-                translate=translate,
-                parsers=parsers,
-                adapters=adapters,
-                delimiter=";")))
-
-        plane_ids = (1 ,2, 10)
-        for plane_uid, flight in zip(plane_ids, flights):
+            flights = list(repo.add("vehicle_properties",
+                                    repo.build_mission(
+                                        repo.read_file(
+                                            CSV_PATH / "flights.csv",
+                                            headings=["Datum", "Muster"],
+                                            table="missions",
+                                            translate=translate,
+                                            parsers=parsers,
+                                            adapters=adapters,
+                                            delimiter=";"))))
+        plane_ids = (1, 2, 10)
+        plane_regs = ("D-1234", "D-2234", "D-EFGH")
+        for reg, plane_uid, flight in zip(plane_regs, plane_ids, flights):
             self.assertIsInstance(flight, Mission)
             self.assertIsInstance(flight.pilot, Person)
             self.assertIsInstance(flight.vehicle, Vehicle)
@@ -239,7 +241,7 @@ class RepositoryTestCase(unittest.TestCase):
             self.assertEqual("Wright", flight.pilot.last_name)
             self.assertEqual(2, flight.pilot.uid)
             self.assertEqual(plane_uid, flight.vehicle.uid)
-            self.assertIsNone(flight.vehicle.registration)  # regs not read
+            self.assertEqual(reg, flight.vehicle.registration)
 
         self.assertEqual("Lilienthal", flights[0].copilot.last_name)
         self.assertEqual("Otto K.", flights[0].copilot.first_name)
