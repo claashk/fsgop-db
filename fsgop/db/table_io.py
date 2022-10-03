@@ -260,8 +260,11 @@ class CsvParser(object):
                 continue
 
             if self.headings and all([p.search(row_str) for p in self.headings]):
-                names = [s.replace(' ', '_').replace('-', '_') .replace(".", "")
-                         for s in row]
+                names = [
+                    s.replace(' ', '_').replace('-', '_').replace(".", "")
+                     .replace("(", "").replace(")", "")
+                    for s in row
+                ]
                 if self.force_lowercase:
                     names = [s.lower() for s in names]
                 return header, namedtuple('RowType',
