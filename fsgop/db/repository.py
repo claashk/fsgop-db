@@ -510,6 +510,10 @@ class Repository(object):
         else:
             rectype = csv_parser.row_type
 
+        if rectype is None:
+            _s = "\n".join(f"  ({i}) '{h}'" for i, h in enumerate(headings, 1))
+            raise IOError(f"in {path}: No header found\nCriteria:\n{_s}")
+
         _type = self.native_types[table]
         layout = _type.layout(allow=rectype._fields)
 
