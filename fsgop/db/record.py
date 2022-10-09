@@ -127,8 +127,11 @@ class Record(object):
 
         Yields:
             tuple containing attribute name and attribute of all attributes
-            with type 'cls'.
+            with type 'cls'. If ``self`` is an instance of 'cls', it will be
+            yielded with the empty string as key.
         """
+        if isinstance(self, cls):
+            yield "", self
         for k, v in vars(self).items():
             if isinstance(v, cls):
                 yield k, v
