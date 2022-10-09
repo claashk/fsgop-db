@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from datetime import datetime
 
-from fsgop.db import Controller
+from fsgop.db import Controller, Vehicle
 from fsgop.db import Person, Repository, SqliteDatabase
 from fsgop.db.startkladde import schema_v3 as sk_schema
 
@@ -124,6 +124,18 @@ class ControllerTestCase(unittest.TestCase):
             self.assertEqual(1, len(list(ctrl.missions_like(m))))
             m.copilot.uid = 998
             self.assertEqual(0, len(list(ctrl.missions_like(m))))
+
+    def test_vehicles(self):
+        for ctrl in self.create_ctrl():
+            vehicles = list(ctrl.vehicles())
+            where = f"category={Vehicle.categories['glider']}"
+            gliders = list(ctrl.vehicles(where=where))
+
+        self.assertEqual(6, len(vehicles))
+        self.assertEqual(2, len(gliders))
+        self.assertTrue(all(isinstance(v, Vehicle) for v in vehicles))
+        self.assertSetEqual({"D-1234", "D-2234"},
+                            {v.registration for v in gliders})
 
 
 def suite():

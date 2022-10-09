@@ -62,8 +62,11 @@ class Controller(object):
         Yields:
             Complete Vehicle records matching the query
         """
-        yield from self._repo.add("vehicle_properties",
-                                  self._repo.read("vehicles", **kwargs))
+        for vehicle in self._repo.read("vehicles", **kwargs):
+            where = f"vehicle={vehicle.uid}"
+            for prop in self._repo.select("vehicle_properties", where=where):
+                prop.add_to(vehicle)
+            yield vehicle
 
     def missions_of(self,
                     person: Person,
