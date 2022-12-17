@@ -121,9 +121,18 @@ class RepositoryTestCase(unittest.TestCase):
         for repo in self.create_repo():
             people.extend(repo.read_file(CSV_PATH / "people.csv",
                                          adapters=adapters))
-            properties.extend(repo.read_file(CSV_PATH / "person_properties.csv",
-                                             adapters=adapters,
-                                             parsers=parsers))
+            # force is required to auto-set uids in insert!
+            nrec, nins = repo.insert(people, force=True)
+            self.assertEqual(len(people), nrec)
+            self.assertEqual(len(people), nins)
+
+            for prop in repo.read_file(CSV_PATH / "person_properties.csv",
+                                       adapters=adapters,
+                                       parsers=parsers):
+                properties.append(repo.complete(Person, of=prop))
+            nrec, nins = repo.insert(properties)
+            self.assertEqual(len(properties), nrec)
+            self.assertEqual(len(properties), nins)
 
         self.assertEqual(4, len(people))
         self.assertEqual("Bingo", people[0].last_name)
@@ -221,7 +230,7 @@ class RepositoryTestCase(unittest.TestCase):
         adapters = [NameAdapter(), DateTimeAdapter()]
         for repo in self.create_repo():
             flights = list(repo.add("vehicle_properties",
-                                    repo.build_mission(
+                                    repo.complete_missions(
                                         repo.read_file(
                                             CSV_PATH / "flights.csv",
                                             headings=["Datum", "Muster"],

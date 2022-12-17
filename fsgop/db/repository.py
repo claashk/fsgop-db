@@ -204,23 +204,23 @@ class Repository(object):
                     _property.add_to(dest[_property.rec])
             yield rec
 
-    def set_uid_from_property(self,
-                              record: Record,
-                              kind: str,
-                              since: Optional[datetime] = None,
-                              until: Optional[datetime] = None) -> None:
+    def set_uid_of(self,
+                   record: Record,
+                   by: str,
+                   since: Optional[datetime] = None,
+                   until: Optional[datetime] = None) -> None:
         """Try to set the uid of a record using a given property
 
         Args:
             record: Record for which to update the uid
-            kind: Name/kind of the property to use for uid lookup
+            by: Name/kind of the property to use for uid lookup
             since: Optional lower bound of validity for the property. If ``None``
                 properties can have arbitrary valid_from dates.
             until: Optional upper bound fo validity for the property. If ``None``
                 properties can have arbitrary valid_until dates.
         """
         valid_properties = []
-        for prop in record[kind]:
+        for prop in record[by]:
             if until is not None and prop.valid_from > until:
                 continue
             if since is not None and prop.valid_until < since:
@@ -244,40 +244,51 @@ class Repository(object):
         if len(matches) == 1:
             setattr(record, "uid", getattr(matches[0], "rec"))
 
-    def update_mission(self,
-                       mission: Mission,
-                       cls: Type,
-                       by: str = "") -> None:
+    def complete(self,
+                 cls: Type,
+                 of: Record,
+                 by: str = "",
+                 since: Optional[datetime] = None,
+                 until: Optional[datetime] = None) -> Record:
         """Update all referenced mission attributes of a given type
 
         Checks all referenced Records of a given type (e.g. Person, Vehicle) and
         attempts to replace them with instances in the repository.
 
         Args:
-            mission: Mission to update
-            cls: Type of Record to update (Person, Vehicle)
+            cls: Type of Record to update (Person, Vehicle) in destination record
+            of: Destination record to update. Will be modified upon successful
+                completion.
             by: Name of a property. If provided, then this property will be
                 used to set the uid of the respective cls instances before
                 looking them up in the database. Useful e.g. to lookup Vehicles
                 by registration.
-        """
-        recs = []
-        attrs = []
-        for attr, rec in mission.select(cls):
-            if by:
-                self.set_uid_from_property(rec,
-                                           by,
-                                           since=mission.begin,
-                                           until=mission.end)
-            if rec:
-                recs.append(rec)
-                attrs.append(attr)
-        recs = [rec for rec in self.find(recs)]  # replace by database records
-        for attr, rec in zip(attrs, recs):
-            path = attr.split(".")
-            setattr(reduce(getattr, path[:-1], mission), path[-1], rec)
+            since: Optional lower bound of validity for the property. If ``None``
+                properties can have arbitrary valid_from dates. Has no effect
+                unless 'by' is provided, too.
+            until: Optional upper bound fo validity for the property. If ``None``
+                properties can have arbitrary valid_until dates. Has no effect
+                unless 'by' is provided, too.
 
-    def build_mission(self, missions: Iterable[Mission]) -> Iterator[Mission]:
+        Return:
+            Updated record
+        """
+        attrs = []
+        names = []
+        for name, attr in of.select(cls):
+            if by:
+                self.set_uid_of(attr, by, since=since, until=until)
+            if attr:
+                attrs.append(attr)
+                names.append(name)
+
+        for name, attr in zip(names, self.find(attrs)):
+            path = name.split(".")
+            setattr(reduce(getattr, path[:-1], of), path[-1], attr)
+        return of
+
+    def complete_missions(self,
+                          missions: Iterable[Mission]) -> Iterator[Mission]:
         """Completes incomplete mission records
 
         Attempts to assign uids to all Persons and Vehicles in a set of missions.
@@ -288,7 +299,7 @@ class Repository(object):
         their respective (glider) missions.
 
         Args:
-            missions: Iterable of incomplete missions. The missions records will
+            missions: Iterable of incomplete missions. The mission records will
                 be modified.
 
         Yields:
@@ -296,8 +307,12 @@ class Repository(object):
         """
         prev = None  # previous mission used to match aerotows to missions
         for mission in missions:
-            self.update_mission(mission, Person)
-            self.update_mission(mission, Vehicle, by="registration")
+            self.complete(Person, of=mission)
+            self.complete(Vehicle,
+                          of=mission,
+                          by="registration",
+                          since=mission.begin,
+                          until=mission.end)
 
             if mission.is_aerotow():
                 if prev is None:
@@ -324,7 +339,10 @@ class Repository(object):
     def replace(self,
                 records: Iterable[Record],
                 replacement: Optional[Record] = None) -> None:
-        """Replaces a number of records by a single other record in all tables
+        """Database wide replacement of one or more records
+
+        Replaces a number of records with a single replacement record in all
+        tables of the connected database.
 
         Args:
             records: Iterable of records to be replaced. These records will be
@@ -419,7 +437,8 @@ class Repository(object):
         Args:
             records: Iterable of records to insert
             force: If ``True``, existing records are replaced. Defaults to
-              ``False``.
+              ``False``. Has to be ``True``, if UIDs shall be auto-generated for
+              the values to be inserted.
         Returns:
             number of records inserted and number of properties inserted
         """
