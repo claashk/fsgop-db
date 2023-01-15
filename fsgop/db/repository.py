@@ -372,7 +372,7 @@ class Repository(object):
 
     def update(self,
                records: Iterable[Record],
-               fields: Optional[Iterable[str]]) -> None:
+               fields: Optional[Iterable[str]] = None) -> None:
         """Update a number of existing records in the database
 
         Args:
