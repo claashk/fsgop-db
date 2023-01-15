@@ -166,13 +166,13 @@ class PersonTestCase(unittest.TestCase):
 
     def test_properties(self):
         person = Person(first_name="Otto", last_name="Lilienthal")
-        spl = PersonProperty(kind="Licences", value="SPL 123456")
-        ppl = PersonProperty(kind="Licences", value="PPL 321645")
-        m1 = PersonProperty(kind="Membership",
+        spl = PersonProperty(kind="licence", value="SPL:123456")
+        ppl = PersonProperty(kind="licence", value="PPL(A):321645")
+        m1 = PersonProperty(kind="membership",
                             value="Club1 (regular)",
                             valid_from=datetime(1900, 5, 1),
                             valid_until=datetime(1930, 1, 1))
-        m2 = PersonProperty(kind="Membership",
+        m2 = PersonProperty(kind="membership",
                             value="Club1 (honorary)",
                             valid_from=datetime(1930, 1, 1))
         self.assertFalse(person.has_properties)
@@ -188,26 +188,26 @@ class PersonTestCase(unittest.TestCase):
         m1.add_to(person)
         m2.add_to(person)
 
-        self.assertEqual(2, len(person["Licences"]))
-        for p in person["Licenses"]:
+        self.assertEqual(2, len(person["licence"]))
+        for p in person["license"]:
             self.assertIsInstance(p, PersonProperty)
             self.assertIs(p.rec, person)
 
-        self.assertEqual(2, len(person["Membership"]))
+        self.assertEqual(2, len(person["membership"]))
         p = PersonProperty.get_from(person,
-                                    "Membership",
+                                    "membership",
                                     at=datetime(1905, 5, 4))
         self.assertIs(p.rec, person)
         self.assertEqual("Club1 (regular)", p.value)
 
         p = PersonProperty.get_from(person,
-                                    "Membership",
+                                    "membership",
                                     at=datetime(1930, 1, 1))
         self.assertIs(p.rec, person)
         self.assertEqual("Club1 (honorary)", p.value)
 
-        person["Membership"].discard(p)
-        self.assertEqual(1, len(person["Membership"]))
+        person["membership"].discard(p)
+        self.assertEqual(1, len(person["membership"]))
 
     def test_property_layout(self):
         layout = {"uid": "uid",

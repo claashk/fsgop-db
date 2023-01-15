@@ -1,4 +1,4 @@
-from typing import Optional, Union, Iterable
+from typing import Optional, Union, Iterable, Set
 from datetime import datetime
 from .record import Record, to
 from .property import Property
@@ -36,6 +36,21 @@ class Vehicle(Record):
         "winch": WINCH,
         "car": CAR,
         "undefined": UNDEFINED
+    }
+
+    accepted_pic_licences = {
+        SINGLE_ENGINE_PISTON: {"PPL(A)-SEP"},
+        ULTRALIGHT: {"PPL(A)", "LAPL(A)"},
+        TOURING_MOTOR_GLIDER: {"SPL-TMG", "PPL(A)-TMG", "LAPL(A)-TMG", "LAPL(S)-TMG"},
+        GLIDER: {"SPL", "LAPL(S)"},
+        WINCH: {"WINDENSCHEIN"}
+    }
+
+    accepted_instructor_licences = {
+        SINGLE_ENGINE_PISTON: {"FI(A)-SEP"},
+        ULTRALIGHT: {"FI(A)"},
+        TOURING_MOTOR_GLIDER: {"FI(A)-TMG", "FI(S)-TMG"},
+        GLIDER: {"FI(S)"}
     }
 
     def __init__(self,
@@ -84,6 +99,27 @@ class Vehicle(Record):
         for p in regs:
             return p.value
         return None
+
+    @property
+    def pic_licences(self) -> Set[str]:
+        """Get list of accepted licences for vehicle operation
+
+        Return:
+            Set of strings containing licence types permitting operation
+        """
+        return self.accepted_pic_licences[self.category]
+
+    @property
+    def instructor_licences(self) -> Set[str]:
+        """Get list of licences qualifying for instruction on this vehicle
+
+        Args:
+            lic: Licence property
+
+        Return:
+            ``True`` if and only if the licence *lic*
+        """
+        return self.accepted_instructor_licences[self.category]
 
     def is_glider(self) -> bool:
         """Check if vehicle is a glider

@@ -102,14 +102,14 @@ class Mission(Record):
         SKILL_TEST
     }
 
-    pilot_requires_license = {
+    pilot_requires_licence = {
         NORMAL_FLIGHT,
         PASSENGER_FLIGHT,
         TRAINING_FLIGHT,
         PROFICIENCY_CHECK
     }
 
-    copilot_requires_fi_license = {
+    copilot_requires_fi_licence = {
         PROFICIENCY_CHECK,
         TRAINING_FLIGHT,
         DUAL_INSTRUCTION,
@@ -180,6 +180,7 @@ class Mission(Record):
             if self.launch.key() == self.key():
                 self.launch = self  # avoid recursion
 
+    @property
     def pic(self) -> Person:
         """Returns pilot in command
         """
@@ -187,6 +188,7 @@ class Mission(Record):
             return self.copilot
         return self.pilot
 
+    @property
     def crew(self) -> Set[Person]:
         """Returns the crew of this journey as set"""
         return {self.pilot,
@@ -265,9 +267,42 @@ class Mission(Record):
         return all((
             self.end >= other.begin,
             self.begin <= other.end,
-            any((bool(self.crew() & other.crew()),
+            any((bool(self.crew & other.crew),
                  self.vehicle == other.vehicle))
         ))
+
+    @property
+    def licence_warnings(self) -> Set[str]:
+        """Check for missing licences of pilot and copilot
+
+        Return:
+            set containing error messages
+        """
+        msg = set()
+        if (self.pilot is not None
+            and self.category in self.pilot_requires_licence
+            and not self.pilot.holds_licence(self.vehicle.pic_licences,
+                                             when=self.begin)):
+            msg.add("Pilot missing valid licence")
+        if self.category in self.copilot_requires_fi_licence:
+            if self.copilot is None:
+                msg.add("Missing FI/copilot")
+            elif not self.copilot.holds_licence(self.vehicle.instructor_licences,
+                                                when=self.begin):
+                msg.add("Copilot missing FI licence")
+        return msg
+
+    def category_warnings(self) -> Set[str]:
+        msg = set()
+        if (self.pilot is not None
+            and self.category != PASSENGER_FLIGHT
+            and self.pilot.holds_licence(self.vehicle.instructor_licences,
+                                         when=self.begin)):
+            msg.add("Possibly mis-categorised instruction")
+        if (self.category in (SUPERVISED_SOLO, SOLO_CROSS_COUNTRY)
+            and self.copilot is not None):
+            msg.add("Solo flight must not include co-pilot")
+        return msg
 
     @classmethod
     def layout(cls,

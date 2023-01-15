@@ -101,13 +101,13 @@ class ControllerTestCase(unittest.TestCase):
             count = 0
             for flight in ctrl.missions_of(otto, since=datetime(2020, 4, 10)):
                 count += 1
-                self.assertIn(otto.uid, [p.uid for p in flight.crew()])
+                self.assertIn(otto.uid, [p.uid for p in flight.crew])
             self.assertEqual(2, count)
 
             count = 0
             for flight in ctrl.missions_of(otto):
                 count += 1
-                self.assertIn(otto.uid, [p.uid for p in flight.crew()])
+                self.assertIn(otto.uid, [p.uid for p in flight.crew])
             self.assertEqual(4, count)
 
     def test_missions_like(self):

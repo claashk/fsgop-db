@@ -1,4 +1,4 @@
-from typing import Optional, Union, Iterable, Tuple
+from typing import Optional, Union, Iterable, Tuple, List
 from datetime import date, datetime
 import re
 
@@ -128,6 +128,35 @@ class Person(Record):
             s = f"{s} ({self.count})"
         return s
 
+    def valid_licences(self, when: datetime = datetime.utcnow()) -> List[Property]:
+        """Get list of valid licences this person holds at a given time
+
+        Args:
+            when: Date and time at which to check for licences. Defaults to right
+                now.
+
+        Return:
+            List containing one Property for each licence the current Person
+            holds at the specified time.
+        """
+        return [p for p in self["licence"] if p.is_valid(when=when)]
+
+    def holds_licence(self,
+                      licences: Iterable[str],
+                      when: datetime = datetime.utcnow()) -> bool:
+        """Check if person holds any one of a number of required licences
+
+        Args:
+            licences: Iterable of strings containing the first letters of the
+                required licence (e.g. `SPL` or FI-PPL(A)).
+            when: Point in time at which to check for the licence.
+        """
+        for lic in self.valid_licences(when=when):
+            for kind in licences:
+                if lic.value.starts_with(kind):
+                    return True
+        return False
+
     def index_tuple(self) -> Optional[tuple]:
         """Create index tuple
 
@@ -192,4 +221,3 @@ class PersonProperty(Property):
             Layout dictionary.
         """
         return cls._layout_helper(Person, prefix=prefix, allow=allow)
-

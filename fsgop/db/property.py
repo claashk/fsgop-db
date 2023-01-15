@@ -38,6 +38,17 @@ class Property(Record):
         self.kind = to(str, kind, default=None)
         self.value = to(str, value, default=None)
 
+    def is_valid(self, when: datetime = datetime.utcnow()) -> bool:
+        """Check if property is valid at a given date
+
+        Args:
+            when: Datetime at which to check for validity. Defaults to current UTC
+
+        Return:
+            ``True`` if and only if property is valid at the given date.
+        """
+        return self.valid_from <= when < self.valid_until
+
     def add_to(self, rec: Record):
         """Add this property to a record
 
@@ -65,7 +76,7 @@ class Property(Record):
             ValueError if more than one matching property is found
         """
         if at is not None:
-            m = tuple(p for p in rec[kind] if p.valid_from <= at < p.valid_until)
+            m = tuple(p for p in rec[kind] if p.is_valid(when=at))
         else:
             m = tuple(p for p in rec[kind])
         if not m:

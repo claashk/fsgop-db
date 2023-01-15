@@ -119,10 +119,10 @@ class MissionTestCase(unittest.TestCase):
                      vehicle=self.vehicle,
                      begin="2020-12-31 15:00:00",
                      end="2021-01-01 1:20:00")
-        self.assertEqual(self.person1, m1.pic())
+        self.assertEqual(self.person1, m1.pic)
 
         m1.category = Mission.categories["dual flight instruction"]
-        self.assertEqual(self.person2, m1.pic())
+        self.assertEqual(self.person2, m1.pic)
 
     def test_crew(self):
         m1 = Mission(pilot=self.person1,
@@ -130,7 +130,7 @@ class MissionTestCase(unittest.TestCase):
                      vehicle=self.vehicle,
                      begin="2020-12-31 15:00:00",
                      end="2021-01-01 1:20:00")
-        self.assertSetEqual({self.person1, self.person2}, m1.crew())
+        self.assertSetEqual({self.person1, self.person2}, m1.crew)
 
         m2 = Mission(pilot=self.person2,
                      copilot=self.person1,
@@ -138,7 +138,7 @@ class MissionTestCase(unittest.TestCase):
                      vehicle=self.vehicle,
                      begin="2020-12-31 15:00:00",
                      end="2020-12-31 16:00:00")
-        self.assertSetEqual({self.person1, self.person2, Person(55)}, m2.crew())
+        self.assertSetEqual({self.person1, self.person2, Person(55)}, m2.crew)
 
     def test_duration(self):
         m1 = Mission(pilot=self.person1,
