@@ -9,7 +9,7 @@ from fsgop.db.table_info import dependencies
 from fsgop.db import SchemaIterator
 from fsgop.db import to_schema
 from fsgop.db.startkladde import schema_v3
-from fsgop.db.native_schema import schema_v1
+from fsgop.db.native_schema import tables
 from fsgop.db.utils import kwargs_from
 
 
@@ -36,7 +36,7 @@ class TableInfoTestCase(unittest.TestCase):
 
     @staticmethod
     def get_schema(native=False):
-        return to_schema(schema_v1) if native else to_schema(schema_v3)
+        return to_schema(tables) if native else to_schema(schema_v3)
 
     def test_column_construction(self):
         col = ColumnInfo()
@@ -75,6 +75,22 @@ class TableInfoTestCase(unittest.TestCase):
         self.assertEqual("time", c.dtype)
 
         self.assertRaises(KeyError, t.get_column, "col4")
+
+    def test_equals(self):
+        t1 = TableInfo(columns=self.get_columns())
+        t2 = TableInfo(columns=self.get_columns())
+        t3 = TableInfo(columns=self.get_columns(), indices=self.get_indices())
+
+        self.assertEqual(t1, t1)
+        self.assertEqual(t1, t2)
+        self.assertNotEqual(t2, t3)
+        self.assertEqual(t3, t3)
+
+        for idx in self.get_indices():
+            t2.add_index(idx)
+
+        self.assertEqual(t2, t3)
+        self.assertNotEqual(t1, t2)
 
     def test_tuple_conversion(self):
         t = TableInfo(name="Table", columns=self.get_columns())

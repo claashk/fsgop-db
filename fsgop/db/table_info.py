@@ -69,6 +69,19 @@ class ColumnInfo(object):
     def native_type(self) -> Type:
         return self._native_type
 
+    def __eq__(self, other) -> bool:
+        """Check if two ColumnInfo objects are identical"""
+        criteria = (
+            "name",
+            "dtype",
+            "allows_null",
+            "force_null",
+            "default_value",
+            "references")
+        _t1, _t2 = tuple(tuple(getattr(obj, s) for s in criteria)
+                         for obj in (self, other))
+        return _t1 == _t2
+
     def has_auto_increment(self) -> bool:
         """Check if column is incremented automatically
 
@@ -244,6 +257,12 @@ class IndexInfo(object):
     def __ge__(self, other: "IndexInfo") -> bool:
         return not (self < other)
 
+    def __eq__(self, other: "IndexInfo") -> bool:
+        return (self.name == other.name
+                and self.is_unique == other.is_unique
+                and self.is_primary == other.is_primary
+                and self._cols == other._cols)
+
     @property
     def is_id(self) -> bool:
         """Return True if and only if this index is the unique ID index"""
@@ -321,6 +340,11 @@ class TableInfo(object):
             Column information
         """
         yield from self._cols
+
+    def __eq__(self, other: "TableInfo") -> bool:
+        return (self.name == other.name
+                and self._cols == other._cols
+                and self._indices == other._indices)
 
     @property
     def ncols(self) -> int:
