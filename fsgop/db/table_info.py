@@ -50,6 +50,10 @@ class ColumnInfo(object):
         self._native_type = None
         self._set_parser()
 
+        if self.default_value is not None:
+            if type(self.default_value) != self.native_type:
+                self.default_value = self._parser(self.default().strip("'"))
+
     @property
     def ref_info(self) -> tuple:
         """Split references into table name and column name
