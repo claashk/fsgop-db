@@ -64,7 +64,7 @@ schema_v1 = {
             {'name': 'people_by_name_index',
              'is_unique': False,
              'is_primary': False,
-             'columns': [('last_name', 1), ('first_name', 2)]}
+             'columns': [('last_name', 1), ('first_name', 1)]}
         ]
     },
     'person_properties': {
@@ -114,7 +114,7 @@ schema_v1 = {
             {'name': 'person_properties_by_person_name_index',
              'is_unique': False,
              'is_primary': False,
-             'columns': [('person', 1), ('kind', 2), ('valid_until', 3)]}
+             'columns': [('person', 1), ('kind', 1), ('valid_until', 1)]}
         ]
     },
     'vehicles': {
@@ -215,7 +215,7 @@ schema_v1 = {
             {'name': 'vehicle_properties_by_name_value',
              'is_unique': True,
              'is_primary': False,
-             'columns': [('kind', 1), ('value', 2), ('valid_until', 3)]}
+             'columns': [('kind', 1), ('value', 1), ('valid_until', -1)]}
         ]
     },
     'missions': {
@@ -355,7 +355,7 @@ schema_v1 = {
             {'name': 'missions_by_date_value',
              'is_unique': True,
              'is_primary': False,
-             'columns': [('begin', 1), ('vehicle', 2)]}
+             'columns': [('begin', 1), ('vehicle', 1)]}
         ]
     },
     'schema_migrations': {
@@ -372,3 +372,38 @@ schema_v1 = {
              'is_primary': True,
              'columns': [('version', 1)]}]}
 }
+
+vehicle_keys_v1 = {
+    1: "single engine piston",
+    2: "ultralight",
+    3: "touring motor glider",
+    4: "motor glider",
+    5: "glider",
+    11: "winch",
+    12: "car",
+    9999: "undefined"  # use this value only to indicate errors/warnings
+}
+
+vehicle_keys_v2 = {
+    0: "undefined",
+    10: "aircraft",
+    11: "single engine piston",
+    12: "multi engine piston",
+    13: "touring motor glider",
+    14: "glider",
+    30: "ultralight",
+    40: "helicopter",
+    50: "balloon",
+    60: "car",
+    65: "winch"
+}
+
+person_property_types_v1 = {
+    10: "licence",
+    11: "certificate",  # medical, radio
+    40: "accounting information",
+    50: "contact information"
+}
+
+
+
