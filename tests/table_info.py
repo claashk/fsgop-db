@@ -76,6 +76,13 @@ class TableInfoTestCase(unittest.TestCase):
 
         self.assertRaises(KeyError, t.get_column, "col4")
 
+    def test_pop_column(self):
+        t = TableInfo(columns=self.get_columns())
+        c = t.get_column("col1")
+        c1 = t.pop_column("col1")
+        self.assertIs(c, c1)
+        self.assertRaises(KeyError, t.get_column, "col1")
+
     def test_equals(self):
         t1 = TableInfo(columns=self.get_columns())
         t2 = TableInfo(columns=self.get_columns())

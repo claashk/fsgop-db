@@ -487,6 +487,23 @@ class TableInfo(object):
                 return col
         raise KeyError(f"No such column: '{name}'")
 
+    def pop_column(self, name: str) -> ColumnInfo:
+        """Remove column with a given name
+
+        Args:
+            name: Column name
+
+        Returns:
+            Column information removed from columns
+
+        Raise:
+            KeyError: If no column with the given `name` exists.
+        """
+        for i, col in enumerate(self._cols):
+            if col.name == name:
+                return self._cols.pop(i)
+        raise KeyError(f"No such column: '{name}'")
+
     def create_record_type(self,
                            name: Optional[str] = None,
                            aliases: Optional[dict] = None) -> Type[namedtuple]:
