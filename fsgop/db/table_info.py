@@ -294,6 +294,8 @@ class IndexInfo(object):
         n_missing = i + 1 - len(self._cols)
         if n_missing > 0:
             self._cols.extend(n_missing * [None])
+        _order = int(order)
+        assert _order in (-1, 0, 1)
         self._cols[i] = (str(name), int(order))
 
     def key_format(self) -> str:
