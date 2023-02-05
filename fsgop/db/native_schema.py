@@ -360,6 +360,12 @@ schema_v1 = {
     },
     'schema_migrations': {
         'columns': [
+            {'name': 'uid',
+             'dtype': 'int',
+             'allows_null': False,
+             'default_value': None,
+             'extra': 'auto_increment',
+             'references': None},
             {'name': 'version',
              'dtype': 'varchar(255)',
              'allows_null': False,
@@ -370,7 +376,7 @@ schema_v1 = {
             {'name': 'PRIMARY',
              'is_unique': True,
              'is_primary': True,
-             'columns': [('version', 1)]}]}
+             'columns': [('uid', 1)]}]}
 }
 
 vehicle_keys_v1 = {
