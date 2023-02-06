@@ -4,9 +4,9 @@ import sqlite3
 import unittest
 import logging
 from io import StringIO
-from fsgop.db import SqliteDatabase, to_schema
+from fsgop.db import SqliteDatabase, to_schema, TableInfo
 from fsgop.db.startkladde import schema_v3
-from fsgop.db.native_schema import schema_v1 as native_schema
+from fsgop.db.native_schema import tables as native_schema
 from pathlib import Path
 
 
@@ -63,6 +63,17 @@ class SqliteDatabaseTestCase(unittest.TestCase):
             ignore = "name" if idx1['is_primary'] else ""
             self.assertDictEqual({k: v for k, v in idx1.items() if k != ignore},
                                  {k: v for k, v in idx2.items() if k != ignore})
+
+    def test_rename_table(self):
+        db = self.create_db()
+        db.reset(native_schema)
+        db.rename_table_to("airplanes", "vehicles")
+        info = db.get_table_info("airplanes")
+        self.assertEqual(info, db.schema["airplanes"])
+
+        info.name = "vehicles"
+        ref = to_schema(native_schema)
+        self.assertEqual(ref["vehicles"], info)
 
     def test_create_database(self):
         db = self.create_db()
@@ -143,6 +154,56 @@ class SqliteDatabaseTestCase(unittest.TestCase):
             if fld != "copilot_id":
                 self.assertEqual(getattr(flights[0], fld), getattr(flight, fld))
         self.assertEqual(0, db.count("people", where="id=4"))
+
+    def test_migrate(self):
+        db = self.create_db()
+        db.reset(native_schema)
+        new_schema = to_schema(native_schema)
+
+        # remove serial number column and replace it by part number column
+        serial = new_schema["vehicles"].pop_column("serial_number")
+        serial.name = "part_number"
+        new_schema["vehicles"].add_column(serial)
+
+        # add table other vehicles without comments columns
+        other_vehicles = TableInfo.from_list("other_vehicles",
+                                             **new_schema["vehicles"].as_dict())
+        other_vehicles.pop_column("comments")
+        new_schema["other_vehicles"] = other_vehicles
+        old_vehicle_type = db.schema["vehicles"].record_type
+
+        kwargs = dict(uid=None,
+                      manufacturer="Airbus",
+                      model="A-350",
+                      serial_number="AX-TT5432",
+                      num_seats=300,
+                      category=1,
+                      comments="A really big plane")
+
+        v1 = old_vehicle_type(**kwargs)
+        kwargs.update(model="A-340", num_seats=400, serial_number="445566")
+        v2 = old_vehicle_type(**kwargs)
+        db.insert("vehicles", [v1, v2])
+        vehicles = list(db.select("vehicles"))
+        self.assertEqual(2, len(vehicles))
+        db.commit()
+
+        with db.migrate_to(new_schema, prefix="new_") as migrator:
+            migrator.migrate_to("vehicles", "vehicles")
+
+        tables = db.list_tables()
+        self.assertNotIn("new_vehicles", tables)
+        self.assertIn("vehicles", tables)
+        self.assertIn("other_vehicles", tables)
+        vehicles = list(db.select("vehicles"))
+        self.assertEqual(2, len(vehicles))
+        self.assertTupleEqual(("A-350", "A-340"),
+                              tuple(v.model for v in vehicles))
+        self.assertTupleEqual((None, None),
+                              tuple(v.part_number for v in vehicles))
+
+        for key, info in new_schema.items():
+            self.assertEqual(info, db.schema[key], key)
 
 
 def suite():

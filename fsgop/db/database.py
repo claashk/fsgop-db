@@ -57,10 +57,20 @@ class Database(object):
         """Disconnect from database"""
         self._db.close()
         
+    def begin_transaction(self) -> None:
+        """Begin a new manual transaction"""
+        cursor = self._db.cursor()
+        cursor.execute("BEGIN")
+
     def commit(self) -> None:
         """Commit all changes to the database
         """
         self._db.commit()
+
+    def rollback(self) -> None:
+        """Rollback the current transaction"""
+        cursor = self._db.cursor()
+        cursor.execute("ROLLBACK")
 
     def enable_foreign_key_checks(self):
         """Enable foreign key checks on this database"""
@@ -117,10 +127,9 @@ class Database(object):
 
         tables = self.list_tables()
         if tables:
-            cursor = self._db.cursor()
             self.disable_foreign_key_checks()
             for table in tables:
-                cursor.execute(f"DROP TABLE IF EXISTS '{table}'")
+                self.delete_table(table)
             self.enable_foreign_key_checks()
 
         for info in _schema.values():
@@ -136,6 +145,7 @@ class Database(object):
         """
         _force = "" if force else " IF NOT EXISTS"
         _name = table_info.name
+        logger.debug(f"Creating table '{_name}'{_force} ...")
         _cols = ",".join(f"{col.name} {col.dtype}"
                          f"{'' if col.allows_null else ' NOT NULL'} "
                          f"DEFAULT {col.default()}"
@@ -149,6 +159,30 @@ class Database(object):
             if idx.is_primary:
                 continue
             self.create_index_for_table(_name, idx)
+        self.schema[_name] = table_info
+
+    def delete_table(self, table: str) -> None:
+        """Delete a table
+
+        Args:
+            table: Table name
+        """
+        logger.debug(f"Deleting table '{table}' ...")
+        cursor = self._db.cursor()
+        cursor.execute(f"DROP TABLE IF EXISTS '{table}'")
+        self.schema.pop(table, None)
+
+    def rename_table_to(self, name: str, table: str) -> None:
+        """Rename a table
+
+        Args:
+            name: New name of the table
+            table: Current name of the table
+        """
+        logger.debug(f"Renaming table '{table}' to '{name}' ...")
+        cursor = self._db.cursor()
+        cursor.execute(f"ALTER TABLE '{table}' RENAME TO '{name}'")
+        self.schema = self.get_schema()  # update schema -> references may change
 
     def create_index_for_table(self, name: str, index: IndexInfo) -> None:
         """Create index for a table
@@ -157,6 +191,7 @@ class Database(object):
             name: Table name
             index: Information about the index
         """
+        logger.debug(f"Creating index '{index.name}' for table {name} ...")
         cursor = self._db.cursor()
         cursor.execute("CREATE"
                        f"{' UNIQUE' if index.is_unique else ''} "
@@ -495,6 +530,27 @@ class Database(object):
             return -1 if rec[0] is None else int(rec[0])
         raise ValueError("Unable to retrieve maximum of column")
 
+    def migrate_to(self,
+                   schema: dict,
+                   rename: Optional[dict] = None,
+                   prefix="_new") -> "MigrationContext":
+        """Migrate database
+
+        Use as context manager
+
+        Args:
+            schema: Schema to migrate to
+            rename: Dictionary containing tables which shall be just renamed
+            prefix: Prefix used for temporary tables
+
+        Return:
+            migration context for the migration of individual tables
+        """
+        return MigrationContext(db=self,
+                                schema=schema,
+                                rename=rename,
+                                prefix=prefix)
+
     @classmethod
     def var(cls, name: str) -> str:
         """Get variable as named placeholder
@@ -552,3 +608,141 @@ class Database(object):
             raise
         database.commit()
         return database
+
+
+class MigrationContext:
+    """A context manager for migrations
+
+    Roughly follows the concept described here
+    https://www.sqlite.org/lang_altertable.html#otheralter
+
+    Args:
+        db: Database to migrate
+        schema: New schema to which to migrate
+        rename: Dictionary containing names of current and new names. Tables
+            in this dictionary will be renamed in first step of migration
+        prefix: Prefix used to name temporary new tables. Defaults to ``'new_'``
+    """
+    def __init__(self,
+                 db: Database,
+                 schema: dict,
+                 rename: Optional[dict] = None,
+                 prefix: str = "new_") -> None:
+        self.db = db
+        self._rename = dict(rename) if rename is not None else dict()
+        self._new_schema = to_schema(schema)
+        self._prefix = str(prefix)
+
+    def __enter__(self) -> "MigrationContext":
+        logger.info("Beginning database migration ...")
+        self.db.disable_foreign_key_checks()
+        self.db.begin_transaction()
+
+        # First rename tables, which are just renamed and not modified otherwise
+        for new_name, name in self._rename.items():
+            self.db.rename_table_to(new_name, name)
+        self._create_new_tables()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        exception = None
+        if exc_type is None:
+            try:
+                self._delete_tables()
+            except Exception as ex:
+                exception = ex
+                exc_type = type(ex)
+
+        if exc_type is None:
+            self.db.commit()
+            logger.info("Database migration complete")
+        else:
+            logger.warning("Database migration failed! Rolling back ...")
+            self.db.rollback()
+
+        self.db.enable_foreign_key_checks()
+        if exception is not None:
+            raise exception
+
+    def migrate_to(self, name: str, table: str, converter=None):
+        """Migrate a table to another table
+
+        Copy all data from table ``table`` to table ``f'{self._prefix}{name}'``
+
+        Args:
+            name: Name of the destination table (without leading prefix).
+            table: Name of table to migrate from (migration source).
+            converter: A unary function accepting a record of the source table
+                as input and returning a record of the destination table. If
+                ``None``, a default migration object will be created, which
+                copies fields by name and initializes new fields with ``None``.
+        """
+        logger.debug(f"Migrating table '{table}' to table '{name}' ...")
+        tmp_name = f"{self._prefix}{name}"
+        if converter is None:
+            _type = self.db.schema[tmp_name].record_type
+            _fields = _type._fields
+            _conv = lambda rec: _type(**{k: getattr(rec, k, None)
+                                         for k in _fields})
+        else:
+            _conv = converter
+
+        self.db.insert(tmp_name,
+                       (_conv(rec) for rec in self.db.select(table)),
+                       force=True)
+        self.db.delete_table(table)
+        self.db.rename_table_to(name, tmp_name)
+
+    def _create_new_tables(self):
+        """Prepare for a database migration
+
+        Iterates over all tables in the current schema and renames them to
+        current name appended by postfix unless a table with exactly the same
+        properties exists in ``schema``.
+
+        Args:
+            schema: Dictionary containing the new schema after the migration
+            rename: Dictionary containing a name in the old dictionary as key
+                associated with the name of a new table name.
+            postfix: Postfix to add to all tables which have to be modified
+                during migration.
+        """
+        for name, new_table_info in self._new_schema.items():
+            try:
+                table_info = self.db.schema[name]
+                if new_table_info == table_info:
+                    logger.debug(f"Keeping table '{name}' without changes")
+                else:
+                    # create a copy since we modify the name
+                    tmp = TableInfo.from_list(
+                        name=f"{self._prefix}{name}",
+                        **new_table_info.as_dict())
+                    self.db.create_table(tmp, force=False)
+
+            except KeyError:
+                self.db.create_table(new_table_info, force=False)
+
+    def _delete_tables(self) -> None:
+        """Finalise database migration
+
+        Deletes all tables not found in the new schema
+
+        Args:
+            schema: Dictionary containing the new schema
+            postfix: If not ``None`` tables are only deleted if their respective
+                name ends in ``postfix``.
+        """
+        logger.info("Finalising database migration ...")
+        logger.debug("Checking for unmigrated tables ...")
+        tables = self.db.list_tables()
+        missing = [t for t in tables if t.startswith(self._prefix)]
+        if missing:
+            s = "\n * ".join(missing)
+            raise RuntimeError(f"Found {len(missing)} unmigrated tables:\n * {s}")
+
+        for table in tables:
+            if table not in self._new_schema.keys():
+                self.db.delete_table(table)
+
+        for table_info in self._new_schema.values():
+            assert table_info == self.db.schema[table_info.name]
