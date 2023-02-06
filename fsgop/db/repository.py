@@ -15,7 +15,7 @@ from .table_info import SchemaIterator
 from .table_io import CsvParser
 from .record import Record
 from . import startkladde as sk
-from . native_schema import schema_v1
+from .native_schema import tables as current_schema
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class Repository(object):
                 :class:`~fsgop.db.SqliteDatabase` constructor
         """
         self.close()
-        self._db = SqliteDatabase(db=db, schema=schema_v1, **kwargs)
+        self._db = SqliteDatabase(db=db, schema=current_schema, **kwargs)
 
     def close(self) -> None:
         """Close the underlying database (file)"""

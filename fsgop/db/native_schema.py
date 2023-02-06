@@ -1,4 +1,4 @@
-schema_v1 = {
+tables = {
     'people': {
         'columns': [
             {'name': 'uid',
