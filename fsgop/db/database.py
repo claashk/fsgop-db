@@ -121,7 +121,8 @@ class Database(object):
             schema: Schema dictionary
         """
         if schema is None:
-            _schema = self.schema if self.schema is not None else dict()
+            # use to_schema to create a deep copy -> delete modifies self.schema
+            _schema = dict() if self.schema is None else to_schema(self.schema)
         else:
             _schema = to_schema(schema)
 
